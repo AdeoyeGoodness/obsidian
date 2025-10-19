@@ -1,19 +1,19 @@
-> ⚠️ PathWatch is currently in active development.
+# Sentinel
 
-# PathWatch
+> 🔥 Advanced API monitoring and analytics platform with a cyberpunk tactical HUD interface
 
-API monitoring and analytics platform built with a modern monorepo architecture.
+## 🎯 About
+
+Sentinel is a cutting-edge API monitoring and analytics platform built with a modern monorepo architecture. Features a stunning cyberpunk-inspired interface with green accent colors and tactical HUD elements.
 
 ## 🏗️ Project Structure
 
-This is a monorepo managed with [Turborepo](https://turbo.build/repo) and workspaces:
-
 ```
-pathwatch/
+sentinel/
 ├── apps/
-│   ├── collector/      # Data collection service (Bun + Elysia)
+│   ├── collector/      # Data collection service (Node + Elysia)
 │   ├── console/        # Web dashboard (React + Vite)
-│   └── query/          # Query API service (Bun + Elysia)
+│   └── query/          # Query API service (Node + Elysia)
 └── tinybird/           # Analytics data pipeline (Tinybird)
 ```
 
@@ -22,15 +22,14 @@ pathwatch/
 ### Prerequisites
 
 - Node.js >= 18.0.0
-- Bun (for collector and query apps)
-- pnpm, npm, or bun
+- npm or bun
 
 ### Installation
 
 Install all dependencies across the monorepo:
 
 ```bash
-bun install
+npm install
 ```
 
 ### Development
@@ -38,15 +37,17 @@ bun install
 Run all apps in development mode:
 
 ```bash
-bun run dev
+npm run dev
 ```
+
+The console will be available at `http://localhost:3000` and automatically load the dashboard.
 
 Run individual apps:
 
 ```bash
-bun run collector:dev   # Run collector service
-bun run console:dev     # Run web console
-bun run query:dev       # Run query service
+npm run collector:dev   # Run collector service (port 6000)
+npm run console:dev     # Run web console (port 3000)
+npm run query:dev       # Run query service (port 8000)
 ```
 
 ### Building
@@ -54,16 +55,16 @@ bun run query:dev       # Run query service
 Build all apps:
 
 ```bash
-bun run build
+npm run build
 ```
 
-### Testing
+## 🎨 Features
 
-Run tests across all packages:
-
-```bash
-bun run test
-```
+- **Cyberpunk UI**: Tactical HUD design with corner brackets and green accents
+- **Real-time Monitoring**: Track API requests and performance metrics
+- **Analytics Dashboard**: Comprehensive analytics with charts and visualizations
+- **Alert System**: Set up alerts for API issues
+- **Project Management**: Multi-project and multi-org support
 
 ## 📦 Workspaces
 
@@ -73,7 +74,11 @@ Data collection service that ingests API monitoring data.
 
 ### apps/console
 
-Web-based dashboard for visualizing and managing API monitoring data.
+Web-based dashboard for visualizing and managing API monitoring data. Features:
+- Auto-loads dashboard (no authentication in dev mode)
+- Green cyberpunk theme
+- Tactical HUD interface
+- Real-time analytics
 
 ### apps/query
 
@@ -85,13 +90,25 @@ Analytics data pipeline configuration and deployment scripts.
 
 ## 🛠️ Scripts
 
-- `bun run dev` - Start all apps in development mode
-- `bun run build` - Build all apps
-- `bun run test` - Run all tests
-- `bun run lint` - Lint all packages
-- `bun run format` - Format code with Prettier
-- `bun run clean` - Clean all build artifacts and node_modules
+- `npm run dev` - Start all apps in development mode
+- `npm run build` - Build all apps
+- `npm run test` - Run all tests
+- `npm run lint` - Lint all packages
+- `npm run format` - Format code with Prettier
+- `npm run clean` - Clean all build artifacts and node_modules
+
+## 🎨 Design System
+
+- **Accent Color**: `#00ff41` (Matrix green)
+- **Background**: Pure black (#000)
+- **Text**: White (#fff)
+- **Theme**: Cyberpunk / Tactical HUD
+- **Fonts**: System fonts + monospace
 
 ## 📝 License
 
 Distributed under the terms of the [GNU General Public License v3.0](LICENSE).
+
+---
+
+**Sentinel** - Monitoring your APIs like a cyber guardian 🛡️

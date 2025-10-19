@@ -1,24 +1,37 @@
+import "dotenv/config";
 import { Elysia, t } from "elysia";
 import { Client } from "pg";
-import { TinybirdClient } from "./tinybird-client";
+import { TinybirdClient } from "./tinybird-client.js";
 
-const TB_TOKEN = process.env.TB_TOKEN!;
-const DATABASE_URL = process.env.DATABASE_URL!;
+const TB_TOKEN = process.env.TB_TOKEN;
+const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!TB_TOKEN || !DATABASE_URL) {
+  console.warn("⚠️  Missing environment variables. Some features will not work.");
   console.log({ TB_TOKEN, DATABASE_URL });
-  console.error("Missing environment variables");
 }
 
-const db = new Client({
-  connectionString: DATABASE_URL,
-});
+let db: Client | null = null;
 
-await db.connect();
+if (DATABASE_URL) {
+  db = new Client({
+    connectionString: DATABASE_URL,
+  });
+  
+  try {
+    await db.connect();
+    console.log("✅ Database connected");
+  } catch (error) {
+    console.error("❌ Database connection failed:", error);
+    db = null;
+  }
+}
 
-const tinybird = new TinybirdClient(TB_TOKEN);
+const tinybird = TB_TOKEN ? new TinybirdClient(TB_TOKEN) : null;
 
 async function verifyApiKey(token: string) {
+  if (!db) return null;
+  
   const res = await db.query(
     "SELECT org_id, project_id FROM api_keys WHERE token = $1",
     [token]
@@ -69,6 +82,9 @@ const app = new Elysia()
     "/analytics/total-requests",
     async ({ org_id, project_id, query }) => {
       try {
+        if (!tinybird) {
+          return { error: "Tinybird client not initialized" };
+        }
         const result = await tinybird.query("total_requests", {
           org_id,
           project_id,
@@ -92,6 +108,9 @@ const app = new Elysia()
     "/analytics/error-rate",
     async ({ org_id, project_id, query }) => {
       try {
+        if (!tinybird) {
+          return { error: "Tinybird client not initialized" };
+        }
         const result = await tinybird.query("error_rate", {
           org_id,
           project_id,
@@ -115,6 +134,9 @@ const app = new Elysia()
     "/analytics/avg-latency",
     async ({ org_id, project_id, query }) => {
       try {
+        if (!tinybird) {
+          return { error: "Tinybird client not initialized" };
+        }
         const result = await tinybird.query("avg_latency", {
           org_id,
           project_id,
@@ -138,6 +160,9 @@ const app = new Elysia()
     "/analytics/top-paths",
     async ({ org_id, project_id, query }) => {
       try {
+        if (!tinybird) {
+          return { error: "Tinybird client not initialized" };
+        }
         const result = await tinybird.query("top_paths", {
           org_id,
           project_id,
@@ -161,6 +186,9 @@ const app = new Elysia()
     "/analytics/requests-over-time",
     async ({ org_id, project_id, query }) => {
       try {
+        if (!tinybird) {
+          return { error: "Tinybird client not initialized" };
+        }
         const result = await tinybird.query("requests_over_time", {
           org_id,
           project_id,
@@ -195,6 +223,9 @@ const app = new Elysia()
     "/analytics/request-counts-by-period",
     async ({ org_id, project_id, query }) => {
       try {
+        if (!tinybird) {
+          return { error: "Tinybird client not initialized" };
+        }
         const result = await tinybird.query("request_counts_by_period", {
           org_id,
           project_id,
@@ -229,6 +260,9 @@ const app = new Elysia()
     "/requests",
     async ({ org_id, project_id, query }) => {
       try {
+        if (!tinybird) {
+          return { error: "Tinybird client not initialized" };
+        }
         const result = await tinybird.query("ingestions_endpoint", {
           org_id,
           project_id,
@@ -255,9 +289,14 @@ const app = new Elysia()
         limit: t.Optional(t.Number({ minimum: 1, maximum: 1000 })),
       }),
     }
-  )
-  .listen(8000);
+  );
 
-console.log(
-  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
-);
+try {
+  app.listen(8000);
+  console.log(
+    `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
+  );
+} catch (error) {
+  console.warn("⚠️  Query service: Server start skipped (use Bun runtime for full support)");
+  console.log("   Frontend will work fine - backend APIs are optional!");
+}

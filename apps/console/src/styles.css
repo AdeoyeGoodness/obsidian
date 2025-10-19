@@ -16,5 +16,34 @@ code {
 }
 
 @theme {
-  --color-accent: #f45817;
+  --color-accent: #ffffff;
+}
+
+/* Sentinel Enhanced Cyberpunk Styles */
+.text-accent {
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.glow-accent {
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3), 
+              0 0 20px rgba(255, 255, 255, 0.2);
+}
+
+.border-accent {
+  border-color: #ffffff;
+}
+
+/* Animated grid background */
+@keyframes grid-pulse {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.2; }
+}
+
+.grid-background {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: grid-pulse 4s ease-in-out infinite;
 }

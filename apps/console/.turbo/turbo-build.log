@@ -1,0 +1,155 @@
+[?9001h[?1004h[?25l[2J[m[H]0;npm[?25h]0;npm run build[?25l
+> build
+> vite build[5;1H[?25h[K]0;C:\WINDOWS\system32\cmd.exe [36mvite v7.1.10 [32mbuilding for production...
+[m[Ktransforming (1) [2m..\..\node_modules\@tanstack\react-start[22m[K[57C[2mtransforming (10) commonjsHelpers.js[22m[K[36Ctransforming (52) [2m..\..\node_modules\scheduler\index.js[22m[K[55C[2mtransforming (63) ..\..\node_modules\@tanstack\router-cor[22m[K[57C[2mtransforming (86) ..\..\node_modules\@tanstack\react-stor[22m[K[57C[2mtransforming (108) ..\..\node_modules\@tanstack\start-cli[22m[K[57C[2mtransforming (118) src\routes\__authed.tsx[22m[K[42Ctransforming (185) [2m..\..\node_modules\react-icons\tb\inde[22m[K[57C[2mtransforming (198) ..\..\node_modules\recharts\es6\index.[22m[K[57C[2mtransforming (200) ..\..\node_modules\lucide-react\dist\e[22m[K[57C[2mtransforming (564) ..\..\node_modules\lucide-react\dist\e[22m[K[57C[2mtransforming (1200) ..\..\node_modules\lucide-react\dist\[22m[K[57C[2mtransforming (1867) ..\..\node_modules\recharts\es6\carte[22m[K[57C[2mtransforming (1978) ..\..\node_modules\react-icons\lib\ic[22m[K[57C[2mtransforming (2070) ..\..\node_modules\recharts\es6\state[22m[K[57C[2mtransforming (2074) ..\..\node_modules\recharts\es6\util\[22m[K[57C[2mtransforming (2130) ..\..\node_modules\recharts\es6\state[22m[K[57C[2mtransforming (2134) ..\..\node_modules\es-toolkit\dist\ar[22m[K[57C[2mtransforming (2395) ..\..\node_modules\recharts\es6\state[22m[K[57C[2mtransforming (2402) ..\..\node_modules\es-toolkit\dist\co[22m[K[57C[2mtransforming (2488) ..\..\node_modules\es-toolkit\dist\co[22m[K[57C[2mtransforming (2626) ..\..\node_modules\es-toolkit\dist\co[22m[K[57C[2mtransforming (2722) ..\..\node_modules\d3-color\src\defin[22m[K[57C[K[K[32m[2m✓ [m[2m2723 modules transformed.
+[22m[K[K[24C[2mrendering chunks (32)...[22m[K[2mrendering chunks (35)...[22m[K[K[24C[2mrendering chunks (36)...[22m[K[24C[2mrendering chunks (37)...[22m[K[24C[2mrendering chunks (38)...[22m[K[K[2mcomputing gzip size (0)...[22m[K[26C[2mcomputing gzip size (2)...[22m[K[K[26C[2mcomputing gzip size (3)...[22m[2mcomputing gzip size (8)...[22m[K[K[K[2mcomputing gzip size (37)...[22m[K[K[2mdist/client/[35m[22massets/styles-CbLjtfzL.css           [11X[m[1m[2m 26.95 kB[22m[2m │ gzip:   5.72 kB
+dist/client/[36m[22massets/__authed-BHHlSmy8.js          [10X[m[1m[2m  0.10 kB[22m[2m │ gzip:   0.11 kB
+dist/client/[36m[22massets/useLocation-Bcc7xjKN.js       [m[1m[2m  0.10 kB[22m[2m │ gzip:   0.11 kB
+dist/client/[36m[22massets/index-B3TyOYoq.js             [K[m[1m[2m  0.11 kB[22m[2m │ gzip:   0.12 kB
+dist/client/[36m[22massets/_projectId-DCVR4hjJ.js        [m[1m[2m  0.13 kB[22m[2m │ gzip:   0.13 kB
+dist/client/[36m[22massets/index-Jf3HvTKd.js             [K[m[1m[2m  0.13 kB[22m[2m │ gzip:   0.14 kB
+dist/client/[36m[22massets/team-DnOP-4D6.js              [K[m[1m[2m  0.15 kB[22m[2m │ gzip:   0.15 kB
+dist/client/[36m[22massets/support-5-u_rPQX.js           [11X[m[1m[2m  0.15 kB[22m[2m │ gzip:   0.15 kB
+dist/client/[36m[22massets/general-DloZcuht.js           [11X[m[1m[2m  0.15 kB[22m[2m │ gzip:   0.15 kB
+dist/client/[36m[22massets/billing-I3SdEYlx.js           [11X[m[1m[2m  0.15 kB[22m[2m │ gzip:   0.15 kB
+dist/client/[36m[22massets/index-BbgABL1e.js             [K[m[1m[2m  0.15 kB[22m[2m │ gzip:   0.15 kB[22m
+[2mdist/client/[36m[22massets/security-8dOa-vWw.js          [10X[m[1m[2m  0.15 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.15 kB[22m[K
+[2mdist/client/[36m[22massets/integrations-BLmJW0AH.js      [m[1m[2m  0.18 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.17 kB[22m[K
+[2mdist/client/[36m[22massets/data-retention-CMB74f_k.js    [m[1m[2m  0.18 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.17 kB[22m[K
+[2mdist/client/[36m[22massets/access-control-CG81lCAq.js    [m[1m[2m  0.18 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.17 kB[22m[K
+[2mdist/client/[36m[22massets/index-La5cV5Pa.js             [K[m[1m[2m  0.18 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.17 kB[22m[K
+[2mdist/client/[36m[22massets/index-CerUSrM9.js             [K[m[1m[2m  0.22 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.18 kB[22m[K
+[2mdist/client/[36m[22massets/chevron-down-DiFjfzcw.js      [m[1m[2m  0.31 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.25 kB[22m[K
+[2mdist/client/[36m[22massets/x-D0L2XCtp.js                 [K[m[1m[2m  0.34 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.26 kB[22m[K
+[2mdist/client/[36m[22massets/api-keys-CSipmwXj.js          [10X[m[1m[2m  0.38 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.27 kB[22m[K
+[2mdist/client/[36m[22massets/index-CbjtXo5W.js             [K[m[1m[2m  0.41 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.26 kB[22m[K
+[2mdist/client/[36m[22massets/settings-2-I24a-32c.js        [m[1m[2m  0.43 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.30 kB[22m[K
+[2mdist/client/[36m[22massets/bell-Du9_xLK3.js              [K[m[1m[2m  0.47 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.35 kB[22m[K
+[2mdist/client/[36m[22massets/brackets-CLOpDxtE.js          [10X[m[1m[2m  0.56 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.22 kB[22m[K
+[2mdist/client/[36m[22massets/telemetry-layout-DqMDzWay.js  [m[1m[2m  0.91 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.45 kB[22m[K
+[2mdist/client/[36m[22massets/button-B8j5cGi-.js            [12X[m[1m[2m  1.32 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.66 kB[22m[K
+[2mdist/client/[36m[22massets/createLucideIcon-I49pD9fu.js  [m[1m[2m  1.86 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.80 kB[22m[K
+[2mdist/client/[36m[22massets/_org-BePwwC5C.js              [K[m[1m[2m  2.31 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   0.91 kB[22m[K
+[2mdist/client/[36m[22massets/general-CRH0C1uX.js           [11X[m[1m[2m  2.90 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   1.11 kB[22m[K
+[2mdist/client/[36m[22massets/settings-CCudxgM0.js          [10X[m[1m[2m  3.51 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   1.42 kB[22m[K
+[2mdist/client/[36m[22massets/settings-BESxfKje.js          [10X[m[1m[2m  3.98 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   1.48 kB[22m[K
+[2mdist/client/[36m[22massets/index-DJtvzrfM.js             [K[m[1m[2m  7.39 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   3.06 kB[22m[K
+[2mdist/client/[36m[22massets/telmentary-DdTH5uIe.js        [m[1m[2m  8.30 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   2.68 kB[22m[K
+[2mdist/client/[36m[22massets/logs-l7wZb7kE.js              [K[m[1m[2m 11.41 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   4.09 kB[22m[K
+[2mdist/client/[36m[22massets/alerts-DGLCn55a.js            [12X[m[1m[2m 20.44 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   5.10 kB[22m[K
+[2mdist/client/[36m[22massets/alerts-CCVbavkD.js            [12X[m[1m[2m 20.51 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:   4.48 kB[22m[K
+[2mdist/client/[36m[22massets/main-g_ty5-aZ.js              [K[m[1m[2m312.08 kB[22m[2m │ g[22m
+[2m[27;62Hgzip:  97.69 kB[22m[K
+[2mdist/client/[36m[22massets/analytics-BVYswaTq.js         [9X[m[1m[2m361.69 kB[22m[2m │ g[22m
+[2m[27;62Hgzip: 106.34 kB[22m[K
+[2mdist/client/[36m[22massets/chunk-3WUZ46N3-CXZkDYP_.js    [m[1m[2m457.58 kB[22m[2m │ g[22m
+[2m[27;62Hgzip: 156.55 kB[22m[K
+[32m✓ built in 13.99s[m
+[36mvite v7.1.10 [32mbuilding SSR bundle for production...[K[m
+transforming (1) [2m..\..\node_modules\@tanstack\react-start[22m     [28;58H[K[57C[2mtransforming (12) ..\..\node_modules\@tanstack\start-stor[22m[K[57C[2mtransforming (32) tanstack-start-manifest:v[22m[K[43Ctransforming (37) [2msrc\routes\__root.tsx[22m[K[39Ctransforming (93) [2msrc\components\layouts\telemetry-layout[22m[K[57C[33m[2m"createRequestHandler", "defineHandlerCallback", "transformPip[m
+[33m[2m[27;62HpeableStreamWithRouter" and "transformReadableStreamWithRouter"[m
+[33m[2m[27;62H" are imported from external module "@tanstack/router-core/ssr/[m
+[33m[2m[27;62H/server" but never used in "../../node_modules/@tanstack/start-[m
+[33m[2m[27;62H-server-core/dist/esm/createStartHandler.js" and "../../node_mo[m
+[33m[2m[27;62Hodules/@tanstack/start-server-core/dist/esm/index.js".[22m[K[m
+[33m[2m"hydrate" is imported from external module "@tanstack/router-c[m
+[33m[2m[27;62Hcore/ssr/client" but never used in "../../node_modules/@tanstac[m
+[33m[2m[27;62Hck/start-client-core/dist/esm/createServerFn.js" and "../../nod[m
+[33m[2m[27;62Hde_modules/@tanstack/start-client-core/dist/esm/index.js".[22m     [28;1H[m
+[32m[2m✓ [m[2m102 modules transformed.[22m[K
+[K[2mrendering chunks (12)...[22m[K[K[24C[2mrendering chunks (34)...[22m[K[K[K[2mdist/server/[36m[22massets/start-HYkvq4Ni.js                          [28;89H[m
+[36m[m[1m[2m[10C 0.06 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/_tanstack-start-injected-head-scripts_v-cda[m
+[36m[27;62Ha0Ky0D.js  [m[1m[2m 0.07 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/index-e1XgTXCK.js                          [28;89H[m
+[36m[m[1m[2m[10C 0.17 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/index-CVqlJnBj.js                          [28;89H[m
+[36m[m[1m[2m[10C 0.19 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/__authed-qXwgDR6k.js                       [28;86H[m
+[36m[m[1m[2m[10C 0.20 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/team-e_Zdg8fG.js                           [28;90H[m
+[36m[m[1m[2m[10C 0.21 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/support-DYN71sLU.js                        [28;87H[m
+[36m[m[1m[2m[10C 0.21 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/general-CmNApF2k.js                        [28;87H[m
+[36m[m[1m[2m[10C 0.21 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/billing-Bsq9RyHr.js                        [28;87H[m
+[36m[m[1m[2m[10C 0.21 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/security-CDU4R0G_.js                       [28;86H[m
+[36m[m[1m[2m[10C 0.21 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/integrations-B-6dIuQY.js                   [28;82H[m
+[36m[m[1m[2m[10C 0.24 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/data-retention-DG1eARhW.js                 [28;80H[m
+[36m[m[1m[2m[10C 0.24 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/access-control-DaZDciX_.js                 [28;80H[m
+[36m[m[1m[2m[10C 0.24 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/_projectId-CO2wOhBa.js                     [28;84H[m
+[36m[m[1m[2m[10C 0.25 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/index-BmFWXJud.js                          [28;89H[m
+[36m[m[1m[2m[10C 0.27 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/index-DDyAtIEd.js                          [28;89H[m
+[36m[m[1m[2m[10C 0.31 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/index-BA9wOPIH.js                          [28;89H[m
+[36m[m[1m[2m[10C 0.41 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/api-keys-BAS_GxIS.js                       [28;86H[m
+[36m[m[1m[2m[10C 0.52 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/index-CIMUBS95.js                          [28;89H[m
+[36m[m[1m[2m[10C 0.53 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/brackets-nbC6iIqW.js                       [28;86H[m
+[36m[m[1m[2m[10C 0.73 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/telemetry-layout-BMqKF8dA.js               [28;78H[m
+[36m[m[1m[2m[10C 1.36 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/_org-CVj8FR1m.js                           [28;90H[m
+[36m[m[1m[2m[10C 1.95 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/button-BnIWxlWC.js                         [28;88H[m
+[36m[m[1m[2m[10C 2.32 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/settings-LNqs8Zdr.js                       [28;86H[m
+[36m[m[1m[2m[10C 2.65 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/settings-DU9FdbK_.js                       [28;86H[m
+[36m[m[1m[2m[10C 3.41 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/general-rMGAFXF3.js                        [28;87H[m
+[36m[m[1m[2m[10C 4.17 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/_tanstack-start-manifest_v-D_O9JLAb.js     [m
+[36m[27;62H 
+[m[1m[2m[10C 8.83 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/telmentary-BkgiPrV-.js                     [28;84H[m
+[36m[m[1m[2m[10C10.51 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/router-CzhRBiy3.js                         [28;88H[m
+[36m[m[1m[2m[10C14.05 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/analytics-Djv8P6R3.js                      [28;85H[m
+[36m[m[1m[2m[10C16.57 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/logs--HZWvIcq.js                           [28;90H[m
+[36m[m[1m[2m[10C17.09 kB[36m[22m[K[m
+[2mdist/server/[36m[22mserver.js                                         [28;104H[m
+[36m[m[1m[2m[10C25.01 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/alerts-CNIcrubv.js                         [28;88H[m
+[36m[m[1m[2m[10C31.08 kB[36m[22m[K[m
+[2mdist/server/[36m[22massets/alerts-ChCFg724.js                         [28;88H[m
+[36m[m[1m[2m[10C31.88 kB[36m[22m[K[m
+[32m✓ built in 1.83s[m
+[K[?9001l[?1004l

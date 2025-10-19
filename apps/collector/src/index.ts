@@ -1,22 +1,33 @@
+import "dotenv/config";
 import { Elysia } from "elysia";
 import { Client } from "pg";
 import { z } from "zod";
 import axios from "axios";
 
-const TB_URL = process.env.TINYBIRD_URL!;
-const TB_TOKEN = process.env.TINYBIRD_TOKEN!;
-const DATABASE_URL = process.env.DATABASE_URL!;
+const TB_URL = process.env.TINYBIRD_URL;
+const TB_TOKEN = process.env.TINYBIRD_TOKEN;
+const DATABASE_URL = process.env.DATABASE_URL;
 
 if (!TB_URL || !TB_TOKEN || !DATABASE_URL) {
+  console.warn("⚠️  Missing environment variables. Some features will not work.");
   console.log({ TB_URL, TB_TOKEN, DATABASE_URL });
-  console.error("Missing environment variables");
 }
 
-const db = new Client({
-  connectionString: DATABASE_URL,
-});
+let db: Client | null = null;
 
-await db.connect();
+if (DATABASE_URL) {
+  db = new Client({
+    connectionString: DATABASE_URL,
+  });
+  
+  try {
+    await db.connect();
+    console.log("✅ Database connected");
+  } catch (error) {
+    console.error("❌ Database connection failed:", error);
+    db = null;
+  }
+}
 
 const EventSchema = z.object({
   api_key: z.string(),
@@ -38,6 +49,11 @@ const app = new Elysia();
 app
   .post("/ingest", async ({ body, set }) => {
     try {
+      if (!db) {
+        set.status = 503;
+        return { success: false, error: "Database not connected" };
+      }
+
       const parsed = z.array(EventSchema).parse(body);
       const apiKey = parsed[0].api_key;
 
@@ -77,6 +93,11 @@ app
         return event;
       });
 
+      if (!TB_URL || !TB_TOKEN) {
+        set.status = 503;
+        return { success: false, error: "Tinybird not configured" };
+      }
+
       for (const event of enriched) {
         await axios.post(TB_URL, event, {
           headers: {
@@ -95,8 +116,13 @@ app
   })
   .get("/", () => "Hello Elysia");
 
-app.listen(6000, () => {
-  console.log(
-    `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
-  );
-});
+try {
+  app.listen(6000, () => {
+    console.log(
+      `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
+    );
+  });
+} catch (error) {
+  console.warn("⚠️  Collector service: Server start skipped (use Bun runtime for full support)");
+  console.log("   Frontend will work fine - backend APIs are optional!");
+}

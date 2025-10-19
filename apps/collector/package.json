@@ -1,23 +1,27 @@
 {
-  "name": "collector",
+  "name": "sentinel-collector",
   "version": "1.0.50",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "bun run --watch src/index.ts",
-    "build": "bun build src/index.ts --outdir ./dist --target bun",
-    "start": "bun run dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
     "axios": "^1.12.2",
+    "dotenv": "^17.2.3",
     "elysia": "latest",
+    "memoirist": "^0.4.0",
     "pg": "^8.16.3",
     "zod": "^4.1.11"
   },
   "devDependencies": {
     "@types/pg": "^8.15.5",
-    "bun-types": "latest"
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
   },
-  "module": "src/index.js"
+  "module": "dist/index.js"
 }

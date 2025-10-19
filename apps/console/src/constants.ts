@@ -1,1 +1,1 @@
-export const APP_NAME = "Pathwatch";
+export const APP_NAME = "Sentinel";

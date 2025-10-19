@@ -1,0 +1,7 @@
+[?9001h[?1004h[?25l[2J[m[H]0;npm[?25h]0;npm run dev[?25l
+> dev
+> vite dev --port 3000[5;1H[?25h[K]0;C:\WINDOWS\system32\cmd.exe [2m4:18:29 PM[22m [36m[1m[vite][m [90m[2m(client)[m Re-optimizing dependencies because vite config has changed
+[?25l
+  [32m[1mVITE[22m v7.1.10  [m[2mready in [22m[1m62175[22m ms[9;1H[?25h  [32m➜  [m[1mLocal[22m:   [36mhttp://localhost:[1m3000[22m/[m[2m
+  [32m➜  [m[1m[2mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[32m
+  ➜  [m[2mpress [22m[1mh + enter[22m[2m to show help
