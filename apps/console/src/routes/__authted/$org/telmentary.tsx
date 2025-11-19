@@ -1,16 +1,23 @@
 import Brackets from '@/components/ui/brackets';
 import { Button } from '@/components/ui/button';
-import { createFileRoute, Link, Outlet, useLocation, useNavigate } from '@tanstack/react-router';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { createFileRoute, Link, Outlet, useLocation } from '@tanstack/react-router';
 import {
   BadgeCheck,
   BetweenHorizonalStart,
   Clock4,
-  ChevronDown,
   Settings2,
   TriangleAlert,
   BarChart3,
+  LayoutDashboard,
+  Network,
+  Shield,
+  Workflow,
+  AlertCircle,
+  BookOpen,
+  FileText,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo } from 'react';
 
 type ProjectSummary = {
   slug: string;
@@ -31,74 +38,59 @@ export const Route = createFileRoute('/__authted/$org/telmentary')({
 
 function RouteComponent() {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
-  const [isPickerOpen, setPickerOpen] = useState(false);
-  const pickerRef = useRef<HTMLDivElement | null>(null);
+  const { org } = Route.useParams();
 
-  const projects = useMemo(
-    (): ProjectSummary[] => [
-      {
-        slug: 'plaything',
-        name: 'Plaything',
-        orgSlug: 'logbase',
-        orgName: 'Logbase',
-        status: 'Active',
-        updatedAt: '2025-10-12T17:24:00.000Z',
-        metrics: {
-          errors: 124,
-          p99: '612ms',
-        },
+  const activeProject = useMemo(
+    (): ProjectSummary => ({
+      slug: 'project',
+      name: 'Pleroma Project',
+      orgSlug: org,
+      orgName: 'Pleroma',
+      status: 'Active',
+      updatedAt: new Date().toISOString(),
+      metrics: {
+        errors: 124,
+        p99: '612ms',
       },
-      {
-        slug: 'relayx',
-        name: 'RelayX',
-        orgSlug: 'logbase',
-        orgName: 'Logbase',
-        status: 'Active',
-        updatedAt: '2025-10-10T08:12:00.000Z',
-        metrics: {
-          errors: 42,
-          p99: '428ms',
-        },
-      },
-      {
-        slug: 'wayfinder',
-        name: 'Wayfinder',
-        orgSlug: 'logbase',
-        orgName: 'Logbase',
-        status: 'On Hold',
-        updatedAt: '2025-09-28T21:45:00.000Z',
-        metrics: {
-          errors: 0,
-          p99: '—',
-        },
-      },
-    ],
-    []
+    }),
+    [org]
   );
-
-  const pathSegments = pathname.split('/').filter(Boolean);
-  const telmentaryIndex = pathSegments.indexOf('telmentary');
-  const projectSlugFromPath =
-    telmentaryIndex > -1 ? pathSegments[telmentaryIndex + 1] : projects[0]?.slug;
-
-  const activeProject = projects.find((item) => item.slug === projectSlugFromPath) ?? projects[0];
 
   const links = [
     {
-      name: 'Logs',
+      name: 'Dashboard',
+      path: '/$org/telmentary/$projectId/',
+      icon: <LayoutDashboard size={16} />,
+    },
+    {
+      name: 'Petri Net Studio',
+      path: '/$org/telmentary/$projectId/petri-net',
+      icon: <Workflow size={16} />,
+    },
+    {
+      name: 'Threat Intelligence',
+      path: '/$org/telmentary/$projectId/threat-detection',
+      icon: <Shield size={16} />,
+    },
+    {
+      name: 'Defense Simulator',
+      path: '/$org/telmentary/$projectId/defense-simulation',
+      icon: <Network size={16} />,
+    },
+    {
+      name: 'CAPEC Library',
+      path: '/$org/telmentary/$projectId/capec',
+      icon: <BookOpen size={16} />,
+    },
+    {
+      name: 'CVE Vulnerabilities',
+      path: '/$org/telmentary/$projectId/cve',
+      icon: <AlertCircle size={16} />,
+    },
+    {
+      name: 'System Logs',
       path: '/$org/telmentary/$projectId/logs',
       icon: <BetweenHorizonalStart size={16} />,
-    },
-    {
-      name: 'Analytics',
-      path: '/$org/telmentary/$projectId/analytics',
-      icon: <BarChart3 size={16} />,
-    },
-    {
-      name: 'Alerts',
-      path: '/$org/telmentary/$projectId/alerts',
-      icon: <TriangleAlert size={16} />,
     },
     {
       name: 'Settings',
@@ -108,60 +100,11 @@ function RouteComponent() {
   ];
 
   const isLinkActive = (linkPath: string) => {
-    if (!activeProject) {
-      return false;
-    }
     const resolvedPath = linkPath
       .replace('$org', activeProject.orgSlug)
       .replace('$projectId', activeProject.slug);
     return pathname === resolvedPath;
   };
-
-  const handleSelectProject = (project: (typeof projects)[number]) => {
-    if (!project || project.slug === activeProject?.slug) {
-      setPickerOpen(false);
-      return;
-    }
-
-    navigate({
-      to: '/$org/telmentary/$projectId/logs',
-      params: {
-        org: project.orgSlug,
-        projectId: project.slug,
-      },
-    });
-    setPickerOpen(false);
-  };
-
-  if (!activeProject) {
-    return null;
-  }
-
-  useEffect(() => {
-    if (!isPickerOpen) {
-      return;
-    }
-
-    const handleClickAway = (event: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
-        setPickerOpen(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setPickerOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickAway);
-    document.addEventListener('keydown', handleEscape);
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickAway);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isPickerOpen]);
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -169,73 +112,12 @@ function RouteComponent() {
         <Brackets />
 
         <div className="border-b border-gray-800 px-4 py-3">
-          <div ref={pickerRef} className="relative">
+          <div>
             <p className="text-[11px] uppercase tracking-[0.35em] text-gray-500">Project</p>
-            <Button
-              intent="ghost"
-              showBrackets={false}
-              className="mt-2 w-full px-3 py-2 text-white flex items-center justify-between"
-              onClick={() => setPickerOpen((prev) => !prev)}
-              ariaLabel="Select project"
-              ariaExpanded={isPickerOpen}
-              rawChildren
-            >
-              <span className="flex w-full items-center text-xs font-medium text-white normal-case">
-                <span className="flex-1 truncate pr-3">{activeProject.name}</span>
-                <ChevronDown
-                  size={16}
-                  className={`ml-auto transition-transform text-gray-500 ${isPickerOpen ? 'rotate-180' : ''}`}
-                />
-              </span>
-            </Button>
-
-            <p className="mt-2 text-[10px] uppercase tracking-[0.35em] text-gray-600">
+            <p className="mt-2 text-sm font-medium text-white">{activeProject.name}</p>
+            <p className="mt-1 text-[10px] uppercase tracking-[0.35em] text-gray-600">
               {activeProject.orgName}
             </p>
-
-            {isPickerOpen ? (
-              <div className="absolute left-0 right-0 top-15 z-20 mt-2 overflow-hidden rounded border border-gray-800 bg-black shadow-2xl">
-                <ul className="relative max-h-64 divide-y divide-gray-900/60 overflow-y-auto">
-                  {projects.map((project) => {
-                    const isSelected = project.slug === activeProject.slug;
-                    return (
-                      <li key={project.slug}>
-                        <button
-                          type="button"
-                          onClick={() => handleSelectProject(project)}
-                          className={`w-full px-3 py-3 text-left transition-colors ${
-                            isSelected ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-gray-300'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-medium">{project.name}</p>
-                              <p className="text-[11px] uppercase tracking-[0.3em] text-gray-500">
-                                {project.orgName}
-                              </p>
-                            </div>
-                            <span className="inline-flex items-center gap-1 text-xs text-emerald-300">
-                              <BadgeCheck size={12} /> {project.status}
-                            </span>
-                          </div>
-                          <div className="mt-2 flex items-center justify-end text-[11px] uppercase tracking-[0.3em] text-gray-500">
-                            <span>
-                              {new Intl.DateTimeFormat('en-GB', {
-                                day: '2-digit',
-                                month: 'short',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: false,
-                              }).format(new Date(project.updatedAt))}
-                            </span>
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ) : null}
           </div>
 
           <div className="mt-4 flex items-center text-xs text-gray-400">
@@ -292,12 +174,28 @@ function RouteComponent() {
                 >
                   <div className="relative">
                     <Button
-                      icon={link.icon}
+                      icon={
+                        <span
+                          className={isActive ? 'text-cyan-400' : 'text-gray-400'}
+                          style={
+                            isActive
+                              ? {
+                                  filter: 'drop-shadow(0 0 8px rgba(93, 229, 255, 0.8))',
+                                  transition: 'all 0.3s ease',
+                                }
+                              : {}
+                          }
+                        >
+                          {link.icon}
+                        </span>
+                      }
                       showBrackets={isActive}
                       intent="ghost"
                       size="sm"
-                      className={`justify-start gap-3 px-3 ${
-                        isActive ? 'bg-white/10 text-white border-gray-700' : 'text-gray-400'
+                      className={`justify-start gap-3 px-3 transition-all duration-300 ${
+                        isActive
+                          ? 'bg-white/10 text-white border-gray-700 shadow-[0_0_15px_rgba(93,229,255,0.3)]'
+                          : 'text-gray-400 hover:text-cyan-400 hover:bg-white/5'
                       }`}
                     >
                       {link.name}
@@ -310,8 +208,8 @@ function RouteComponent() {
         </div>
 
         <div className="absolute bottom-0 w-full border-t border-gray-800 px-4 py-3 text-[11px] uppercase tracking-[0.3em] text-gray-600 flex items-center justify-between">
-          <span>Console v0.1</span>
-          <span>Telemetry</span>
+          <span>Pleroma CyberNet</span>
+          <ThemeToggle />
         </div>
       </aside>
 

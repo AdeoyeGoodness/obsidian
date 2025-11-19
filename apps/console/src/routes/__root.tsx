@@ -1,6 +1,8 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router';
+import { useEffect } from 'react';
 
 import appCss from '../styles.css?url';
+import { ThemeProvider } from '@/contexts/theme-context';
 
 export const Route = createRootRoute({
   head: () => ({
@@ -13,7 +15,7 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Sentinel Console',
+        title: 'Pleroma CyberNet',
       },
     ],
     links: [
@@ -28,13 +30,20 @@ export const Route = createRootRoute({
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('pleroma-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', saved);
+    }
+  }, []);
+
   return (
     <html lang="en" className="h-full">
       <head>
         <HeadContent />
       </head>
       <body className="h-full overflow-hidden">
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
         <Scripts />
       </body>
     </html>

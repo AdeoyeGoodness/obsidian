@@ -5,6 +5,6 @@ export const Route = createFileRoute("/")({
 });
 
 function App() {
-  // Auto-redirect to dashboard in dev mode
-  return <Navigate to="/__authted/sentinel-org/telmentary" />;
+  // Auto-redirect to dashboard
+  return <Navigate to="/__authted/logbase/telmentary/project/" />;
 }
