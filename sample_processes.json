@@ -1,0 +1,42 @@
+[
+  {
+    "orgId": "pleroma",
+    "projectId": "project",
+    "name": "Zero Trust Gateway",
+    "description": "Ingress workflow with inspection and decision points",
+    "source": "manual",
+    "definition": {
+      "tasks": [
+        { "id": "start", "name": "Ingress", "next": ["inspect"] },
+        { "id": "inspect", "name": "Inspect Traffic", "next": ["decision"] },
+        { "id": "decision", "kind": "gateway", "next": ["allow", "block"] },
+        { "id": "allow", "name": "Allow Request" },
+        { "id": "block", "name": "Block Request" }
+      ]
+    },
+    "metadata": {
+      "owner": "SOC",
+      "priority": "high"
+    }
+  },
+  {
+    "orgId": "pleroma",
+    "projectId": "project",
+    "name": "API Authentication Flow",
+    "description": "Token validation and authorization pipeline",
+    "source": "manual",
+    "definition": {
+      "tasks": [
+        { "id": "receive", "name": "Receive Request", "next": ["validate"] },
+        { "id": "validate", "name": "Validate Token", "next": ["check"] },
+        { "id": "check", "kind": "gateway", "next": ["authorize", "reject"] },
+        { "id": "authorize", "name": "Authorize Access" },
+        { "id": "reject", "name": "Reject Request" }
+      ]
+    },
+    "metadata": {
+      "owner": "Security Team"
+    }
+  }
+]
+

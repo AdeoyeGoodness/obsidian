@@ -9,6 +9,8 @@
   ],
   "scripts": {
     "dev": "turbo run dev",
+    "start": "node start-all.js",
+    "start:all": "node start-all.js",
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",

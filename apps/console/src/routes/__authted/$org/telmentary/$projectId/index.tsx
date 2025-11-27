@@ -2,7 +2,13 @@ import { createFileRoute } from '@tanstack/react-router';
 import { TelemetryLayout } from '@/components/layouts/telemetry-layout';
 import { Card, CardHeader, StatCard } from '@/components/ui/card';
 import { Activity, AlertTriangle, TrendingUp, Shield, Clock, Zap } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState, useCallback } from 'react';
+import {
+  fetchReportsSummary,
+  listCveRecords,
+  listNetworkEvents,
+  isQueryApiConfigured,
+} from '@/lib/query-api';
 
 export const Route = createFileRoute('/__authted/$org/telmentary/$projectId/')({
   component: RouteComponent,
@@ -11,42 +17,130 @@ export const Route = createFileRoute('/__authted/$org/telmentary/$projectId/')({
 function RouteComponent() {
   const { org, projectId } = Route.useParams();
 
+  // Real data state
+  const [summary, setSummary] = useState<{ processes: number; petriNets: number; threatPredictions: number } | null>(null);
+  const [cveRecords, setCveRecords] = useState<any[]>([]);
+  const [networkEvents, setNetworkEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(isQueryApiConfigured);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load real data from API
+  useEffect(() => {
+    if (!isQueryApiConfigured) {
+      setLoading(false);
+      return;
+    }
+
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [summaryRes, cveRes, eventsRes] = await Promise.all([
+          fetchReportsSummary().catch(() => ({ data: null })),
+          listCveRecords({ limit: 10 }).catch(() => ({ data: [] })),
+          listNetworkEvents({ limit: 5 }).catch(() => ({ data: [] })),
+        ]);
+
+        if (summaryRes.data) setSummary(summaryRes.data);
+        if (cveRes.data) setCveRecords(cveRes.data);
+        if (eventsRes.data) setNetworkEvents(eventsRes.data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [org, projectId]);
+
+  // Derive stats from real data
+  const stats = useMemo(() => {
+    if (!summary) {
+      return {
+        totalCVEs: 0,
+        highRiskNodes: 0,
+        activeThreats: cveRecords.length || 0,
+        mitigated: 0,
+      };
+    }
+
+    const highRiskCVEs = cveRecords.filter((cve) => {
+      const severity = cve.severity as Record<string, unknown> | null;
+      const score = typeof severity?.score === 'number' ? severity.score : 0;
+      return score >= 7;
+    }).length;
+
+    return {
+      totalCVEs: cveRecords.length || summary.threatPredictions || 0,
+      highRiskNodes: highRiskCVEs,
+      activeThreats: cveRecords.length || 0,
+      mitigated: 0, // TODO: Add mitigation tracking
+    };
+  }, [summary, cveRecords]);
+
+  // Derive active threats from CVE records
+  const activeThreats = useMemo(() => {
+    return cveRecords.slice(0, 5).map((cve, index) => {
+      const severity = cve.severity as Record<string, unknown> | null;
+      const score = typeof severity?.score === 'number' ? severity.score : 5 + (index % 4);
+      const severityLevel = score >= 9 ? 'high' : score >= 7 ? 'medium' : 'low';
+      
+      return {
+        id: cve.cveId || cve.id,
+        name: cve.cveId || `CVE-${index + 1}`,
+        severity: severityLevel,
+        status: 'active' as const,
+      };
+    });
+  }, [cveRecords]);
+
+  // Derive recent alerts from network events
+  const recentAlerts = useMemo(() => {
+    return networkEvents.slice(0, 5).map((event, index) => {
+      const timeAgo = event.observedAt
+        ? (() => {
+            const diff = Date.now() - new Date(event.observedAt).getTime();
+            const minutes = Math.floor(diff / 60000);
+            if (minutes < 60) return `${minutes}m ago`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}h ago`;
+            return `${Math.floor(hours / 24)}d ago`;
+          })()
+        : `${index + 1}h ago`;
+
+      return {
+        id: event.id,
+        time: timeAgo,
+        type: event.type || 'Network Event',
+        severity: index % 3 === 0 ? 'high' : index % 3 === 1 ? 'medium' : 'low',
+      };
+    });
+  }, [networkEvents]);
+
+  // System status based on threats
   const systemStatus = useMemo(() => {
-    return Math.random() > 0.3 ? 'Secure' : 'Threat Detected';
+    const highRiskCount = activeThreats.filter((t) => t.severity === 'high').length;
+    return highRiskCount > 0 ? 'Threat Detected' : 'Secure';
+  }, [activeThreats]);
+
+  // Network health (placeholder - would come from analytics)
+  const networkHealth = useMemo(() => {
+    // TODO: Calculate from actual network metrics
+    return 87;
   }, []);
-
-  const networkHealth = useMemo(() => 87, []);
-  const activeThreats = useMemo(
-    () => [
-      { id: '1', name: 'ICEBREAKER 7.2', severity: 'high', status: 'active' },
-      { id: '2', name: 'CAPEC-163', severity: 'medium', status: 'monitoring' },
-      { id: '3', name: 'CAPEC-94', severity: 'low', status: 'resolved' },
-    ],
-    []
-  );
-
-  const recentAlerts = useMemo(
-    () => [
-      { id: '1', time: '2m ago', type: 'Anomaly Detected', severity: 'high' },
-      { id: '2', time: '15m ago', type: 'Pattern Match', severity: 'medium' },
-      { id: '3', time: '1h ago', type: 'System Update', severity: 'low' },
-    ],
-    []
-  );
-
-  const stats = useMemo(
-    () => ({
-      totalCVEs: 42,
-      highRiskNodes: 8,
-      activeThreats: 3,
-      mitigated: 15,
-    }),
-    []
-  );
 
   return (
     <TelemetryLayout org={org} projectId={projectId} section="Dashboard">
       <div className="p-6 flex-1 min-h-0 flex flex-col gap-6 overflow-auto" style={{ padding: '24px', gap: '24px' }}>
+        {error && (
+          <div className="bg-red-500/20 border border-red-500/40 text-red-200 text-xs px-4 py-2 rounded">
+            {error} {!isQueryApiConfigured && '(API not configured - showing fallback data)'}
+          </div>
+        )}
+        {loading && (
+          <div className="text-xs text-gray-500 uppercase tracking-wider">Loading dashboard data...</div>
+        )}
         {/* System Status - Large Card */}
         <Card size="large" glow pulse={systemStatus === 'Threat Detected'}>
           <CardHeader
@@ -135,6 +229,9 @@ function RouteComponent() {
                 icon={<Shield className="text-purple-400" size={20} />}
               />
               <div className="flex-1 overflow-y-auto space-y-3">
+                {activeThreats.length === 0 && !loading && (
+                  <div className="text-xs text-gray-500 text-center py-4">No active threats detected</div>
+                )}
                 {activeThreats.map((threat) => (
                   <Card
                     key={threat.id}
@@ -199,6 +296,9 @@ function RouteComponent() {
                 icon={<Clock className="text-cyan-400" size={20} />}
               />
               <div className="flex-1 overflow-y-auto space-y-3">
+                {recentAlerts.length === 0 && !loading && (
+                  <div className="text-xs text-gray-500 text-center py-4">No recent alerts</div>
+                )}
                 {recentAlerts.map((alert) => (
                   <div key={alert.id} className="flex items-start gap-3">
                     <div

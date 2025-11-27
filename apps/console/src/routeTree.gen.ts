@@ -29,8 +29,9 @@ import { Route as _authtedOrgTelmentaryProjectIdThreatDetectionRouteImport } fro
 import { Route as _authtedOrgTelmentaryProjectIdSettingsRouteImport } from './routes/__authted/$org/telmentary/$projectId/settings'
 import { Route as _authtedOrgTelmentaryProjectIdPetriNetRouteImport } from './routes/__authted/$org/telmentary/$projectId/petri-net'
 import { Route as _authtedOrgTelmentaryProjectIdOnboardingRouteImport } from './routes/__authted/$org/telmentary/$projectId/onboarding'
+import { Route as _authtedOrgTelmentaryProjectIdNetworkScanRouteImport } from './routes/__authted/$org/telmentary/$projectId/network-scan'
 import { Route as _authtedOrgTelmentaryProjectIdLogsRouteImport } from './routes/__authted/$org/telmentary/$projectId/logs'
-import { Route as _authtedOrgTelmentaryProjectIdDefenseSimulationRouteImport } from './routes/__authted/$org/telmentary/$projectId/defense-simulation'
+import { Route as _authtedOrgTelmentaryProjectIdImportRouteImport } from './routes/__authted/$org/telmentary/$projectId/import'
 import { Route as _authtedOrgTelmentaryProjectIdCveRouteImport } from './routes/__authted/$org/telmentary/$projectId/cve'
 import { Route as _authtedOrgTelmentaryProjectIdCapecRouteImport } from './routes/__authted/$org/telmentary/$projectId/capec'
 import { Route as _authtedOrgTelmentaryProjectIdAnalyticsRouteImport } from './routes/__authted/$org/telmentary/$projectId/analytics'
@@ -154,16 +155,22 @@ const _authtedOrgTelmentaryProjectIdOnboardingRoute =
     path: '/onboarding',
     getParentRoute: () => _authtedOrgTelmentaryProjectIdRoute,
   } as any)
+const _authtedOrgTelmentaryProjectIdNetworkScanRoute =
+  _authtedOrgTelmentaryProjectIdNetworkScanRouteImport.update({
+    id: '/network-scan',
+    path: '/network-scan',
+    getParentRoute: () => _authtedOrgTelmentaryProjectIdRoute,
+  } as any)
 const _authtedOrgTelmentaryProjectIdLogsRoute =
   _authtedOrgTelmentaryProjectIdLogsRouteImport.update({
     id: '/logs',
     path: '/logs',
     getParentRoute: () => _authtedOrgTelmentaryProjectIdRoute,
   } as any)
-const _authtedOrgTelmentaryProjectIdDefenseSimulationRoute =
-  _authtedOrgTelmentaryProjectIdDefenseSimulationRouteImport.update({
-    id: '/defense-simulation',
-    path: '/defense-simulation',
+const _authtedOrgTelmentaryProjectIdImportRoute =
+  _authtedOrgTelmentaryProjectIdImportRouteImport.update({
+    id: '/import',
+    path: '/import',
     getParentRoute: () => _authtedOrgTelmentaryProjectIdRoute,
   } as any)
 const _authtedOrgTelmentaryProjectIdCveRoute =
@@ -252,8 +259,9 @@ export interface FileRoutesByFullPath {
   '/$org/telmentary/$projectId/analytics': typeof _authtedOrgTelmentaryProjectIdAnalyticsRoute
   '/$org/telmentary/$projectId/capec': typeof _authtedOrgTelmentaryProjectIdCapecRoute
   '/$org/telmentary/$projectId/cve': typeof _authtedOrgTelmentaryProjectIdCveRoute
-  '/$org/telmentary/$projectId/defense-simulation': typeof _authtedOrgTelmentaryProjectIdDefenseSimulationRoute
+  '/$org/telmentary/$projectId/import': typeof _authtedOrgTelmentaryProjectIdImportRoute
   '/$org/telmentary/$projectId/logs': typeof _authtedOrgTelmentaryProjectIdLogsRoute
+  '/$org/telmentary/$projectId/network-scan': typeof _authtedOrgTelmentaryProjectIdNetworkScanRoute
   '/$org/telmentary/$projectId/onboarding': typeof _authtedOrgTelmentaryProjectIdOnboardingRoute
   '/$org/telmentary/$projectId/petri-net': typeof _authtedOrgTelmentaryProjectIdPetriNetRoute
   '/$org/telmentary/$projectId/settings': typeof _authtedOrgTelmentaryProjectIdSettingsRouteWithChildren
@@ -282,8 +290,9 @@ export interface FileRoutesByTo {
   '/$org/telmentary/$projectId/analytics': typeof _authtedOrgTelmentaryProjectIdAnalyticsRoute
   '/$org/telmentary/$projectId/capec': typeof _authtedOrgTelmentaryProjectIdCapecRoute
   '/$org/telmentary/$projectId/cve': typeof _authtedOrgTelmentaryProjectIdCveRoute
-  '/$org/telmentary/$projectId/defense-simulation': typeof _authtedOrgTelmentaryProjectIdDefenseSimulationRoute
+  '/$org/telmentary/$projectId/import': typeof _authtedOrgTelmentaryProjectIdImportRoute
   '/$org/telmentary/$projectId/logs': typeof _authtedOrgTelmentaryProjectIdLogsRoute
+  '/$org/telmentary/$projectId/network-scan': typeof _authtedOrgTelmentaryProjectIdNetworkScanRoute
   '/$org/telmentary/$projectId/onboarding': typeof _authtedOrgTelmentaryProjectIdOnboardingRoute
   '/$org/telmentary/$projectId/petri-net': typeof _authtedOrgTelmentaryProjectIdPetriNetRoute
   '/$org/telmentary/$projectId/threat-detection': typeof _authtedOrgTelmentaryProjectIdThreatDetectionRoute
@@ -317,8 +326,9 @@ export interface FileRoutesById {
   '/__authted/$org/telmentary/$projectId/analytics': typeof _authtedOrgTelmentaryProjectIdAnalyticsRoute
   '/__authted/$org/telmentary/$projectId/capec': typeof _authtedOrgTelmentaryProjectIdCapecRoute
   '/__authted/$org/telmentary/$projectId/cve': typeof _authtedOrgTelmentaryProjectIdCveRoute
-  '/__authted/$org/telmentary/$projectId/defense-simulation': typeof _authtedOrgTelmentaryProjectIdDefenseSimulationRoute
+  '/__authted/$org/telmentary/$projectId/import': typeof _authtedOrgTelmentaryProjectIdImportRoute
   '/__authted/$org/telmentary/$projectId/logs': typeof _authtedOrgTelmentaryProjectIdLogsRoute
+  '/__authted/$org/telmentary/$projectId/network-scan': typeof _authtedOrgTelmentaryProjectIdNetworkScanRoute
   '/__authted/$org/telmentary/$projectId/onboarding': typeof _authtedOrgTelmentaryProjectIdOnboardingRoute
   '/__authted/$org/telmentary/$projectId/petri-net': typeof _authtedOrgTelmentaryProjectIdPetriNetRoute
   '/__authted/$org/telmentary/$projectId/settings': typeof _authtedOrgTelmentaryProjectIdSettingsRouteWithChildren
@@ -353,8 +363,9 @@ export interface FileRouteTypes {
     | '/$org/telmentary/$projectId/analytics'
     | '/$org/telmentary/$projectId/capec'
     | '/$org/telmentary/$projectId/cve'
-    | '/$org/telmentary/$projectId/defense-simulation'
+    | '/$org/telmentary/$projectId/import'
     | '/$org/telmentary/$projectId/logs'
+    | '/$org/telmentary/$projectId/network-scan'
     | '/$org/telmentary/$projectId/onboarding'
     | '/$org/telmentary/$projectId/petri-net'
     | '/$org/telmentary/$projectId/settings'
@@ -383,8 +394,9 @@ export interface FileRouteTypes {
     | '/$org/telmentary/$projectId/analytics'
     | '/$org/telmentary/$projectId/capec'
     | '/$org/telmentary/$projectId/cve'
-    | '/$org/telmentary/$projectId/defense-simulation'
+    | '/$org/telmentary/$projectId/import'
     | '/$org/telmentary/$projectId/logs'
+    | '/$org/telmentary/$projectId/network-scan'
     | '/$org/telmentary/$projectId/onboarding'
     | '/$org/telmentary/$projectId/petri-net'
     | '/$org/telmentary/$projectId/threat-detection'
@@ -417,8 +429,9 @@ export interface FileRouteTypes {
     | '/__authted/$org/telmentary/$projectId/analytics'
     | '/__authted/$org/telmentary/$projectId/capec'
     | '/__authted/$org/telmentary/$projectId/cve'
-    | '/__authted/$org/telmentary/$projectId/defense-simulation'
+    | '/__authted/$org/telmentary/$projectId/import'
     | '/__authted/$org/telmentary/$projectId/logs'
+    | '/__authted/$org/telmentary/$projectId/network-scan'
     | '/__authted/$org/telmentary/$projectId/onboarding'
     | '/__authted/$org/telmentary/$projectId/petri-net'
     | '/__authted/$org/telmentary/$projectId/settings'
@@ -582,6 +595,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof _authtedOrgTelmentaryProjectIdOnboardingRouteImport
       parentRoute: typeof _authtedOrgTelmentaryProjectIdRoute
     }
+    '/__authted/$org/telmentary/$projectId/network-scan': {
+      id: '/__authted/$org/telmentary/$projectId/network-scan'
+      path: '/network-scan'
+      fullPath: '/$org/telmentary/$projectId/network-scan'
+      preLoaderRoute: typeof _authtedOrgTelmentaryProjectIdNetworkScanRouteImport
+      parentRoute: typeof _authtedOrgTelmentaryProjectIdRoute
+    }
     '/__authted/$org/telmentary/$projectId/logs': {
       id: '/__authted/$org/telmentary/$projectId/logs'
       path: '/logs'
@@ -589,11 +609,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof _authtedOrgTelmentaryProjectIdLogsRouteImport
       parentRoute: typeof _authtedOrgTelmentaryProjectIdRoute
     }
-    '/__authted/$org/telmentary/$projectId/defense-simulation': {
-      id: '/__authted/$org/telmentary/$projectId/defense-simulation'
-      path: '/defense-simulation'
-      fullPath: '/$org/telmentary/$projectId/defense-simulation'
-      preLoaderRoute: typeof _authtedOrgTelmentaryProjectIdDefenseSimulationRouteImport
+    '/__authted/$org/telmentary/$projectId/import': {
+      id: '/__authted/$org/telmentary/$projectId/import'
+      path: '/import'
+      fullPath: '/$org/telmentary/$projectId/import'
+      preLoaderRoute: typeof _authtedOrgTelmentaryProjectIdImportRouteImport
       parentRoute: typeof _authtedOrgTelmentaryProjectIdRoute
     }
     '/__authted/$org/telmentary/$projectId/cve': {
@@ -735,8 +755,9 @@ interface _authtedOrgTelmentaryProjectIdRouteChildren {
   _authtedOrgTelmentaryProjectIdAnalyticsRoute: typeof _authtedOrgTelmentaryProjectIdAnalyticsRoute
   _authtedOrgTelmentaryProjectIdCapecRoute: typeof _authtedOrgTelmentaryProjectIdCapecRoute
   _authtedOrgTelmentaryProjectIdCveRoute: typeof _authtedOrgTelmentaryProjectIdCveRoute
-  _authtedOrgTelmentaryProjectIdDefenseSimulationRoute: typeof _authtedOrgTelmentaryProjectIdDefenseSimulationRoute
+  _authtedOrgTelmentaryProjectIdImportRoute: typeof _authtedOrgTelmentaryProjectIdImportRoute
   _authtedOrgTelmentaryProjectIdLogsRoute: typeof _authtedOrgTelmentaryProjectIdLogsRoute
+  _authtedOrgTelmentaryProjectIdNetworkScanRoute: typeof _authtedOrgTelmentaryProjectIdNetworkScanRoute
   _authtedOrgTelmentaryProjectIdOnboardingRoute: typeof _authtedOrgTelmentaryProjectIdOnboardingRoute
   _authtedOrgTelmentaryProjectIdPetriNetRoute: typeof _authtedOrgTelmentaryProjectIdPetriNetRoute
   _authtedOrgTelmentaryProjectIdSettingsRoute: typeof _authtedOrgTelmentaryProjectIdSettingsRouteWithChildren
@@ -754,10 +775,12 @@ const _authtedOrgTelmentaryProjectIdRouteChildren: _authtedOrgTelmentaryProjectI
       _authtedOrgTelmentaryProjectIdCapecRoute,
     _authtedOrgTelmentaryProjectIdCveRoute:
       _authtedOrgTelmentaryProjectIdCveRoute,
-    _authtedOrgTelmentaryProjectIdDefenseSimulationRoute:
-      _authtedOrgTelmentaryProjectIdDefenseSimulationRoute,
+    _authtedOrgTelmentaryProjectIdImportRoute:
+      _authtedOrgTelmentaryProjectIdImportRoute,
     _authtedOrgTelmentaryProjectIdLogsRoute:
       _authtedOrgTelmentaryProjectIdLogsRoute,
+    _authtedOrgTelmentaryProjectIdNetworkScanRoute:
+      _authtedOrgTelmentaryProjectIdNetworkScanRoute,
     _authtedOrgTelmentaryProjectIdOnboardingRoute:
       _authtedOrgTelmentaryProjectIdOnboardingRoute,
     _authtedOrgTelmentaryProjectIdPetriNetRoute:

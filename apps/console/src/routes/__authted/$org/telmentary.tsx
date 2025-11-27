@@ -7,15 +7,13 @@ import {
   BetweenHorizonalStart,
   Clock4,
   Settings2,
-  TriangleAlert,
-  BarChart3,
   LayoutDashboard,
   Network,
   Shield,
   Workflow,
   AlertCircle,
   BookOpen,
-  FileText,
+  Upload,
 } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -73,11 +71,6 @@ function RouteComponent() {
       icon: <Shield size={16} />,
     },
     {
-      name: 'Defense Simulator',
-      path: '/$org/telmentary/$projectId/defense-simulation',
-      icon: <Network size={16} />,
-    },
-    {
       name: 'CAPEC Library',
       path: '/$org/telmentary/$projectId/capec',
       icon: <BookOpen size={16} />,
@@ -91,6 +84,16 @@ function RouteComponent() {
       name: 'System Logs',
       path: '/$org/telmentary/$projectId/logs',
       icon: <BetweenHorizonalStart size={16} />,
+    },
+    {
+      name: 'Data Import',
+      path: '/$org/telmentary/$projectId/import',
+      icon: <Upload size={16} />,
+    },
+    {
+      name: 'Network Scanner',
+      path: '/$org/telmentary/$projectId/network-scan',
+      icon: <Network size={16} />,
     },
     {
       name: 'Settings',

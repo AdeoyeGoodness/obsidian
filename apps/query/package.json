@@ -7,17 +7,25 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "clean": "rm -rf dist node_modules"
+    "clean": "rm -rf dist node_modules",
+    "import:data": "tsx src/workers/import-connectors.ts",
+    "import:nvd": "tsx src/workers/import-nvd-cve.ts",
+    "petri:auto": "tsx src/workers/auto-generate-petri.ts",
+    "compute:risks": "tsx src/workers/compute-node-risks.ts",
+    "scan:network": "tsx src/workers/network-scanner.ts"
   },
   "dependencies": {
     "axios": "^1.12.2",
+    "csv-parse": "^5.6.0",
     "dotenv": "^17.2.3",
     "elysia": "latest",
     "memoirist": "^0.4.0",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "xml2js": "^0.6.2"
   },
   "devDependencies": {
     "@types/pg": "^8.15.5",
+    "@types/xml2js": "^0.4.14",
     "tsx": "^4.15.0",
     "typescript": "^5.7.2"
   }
