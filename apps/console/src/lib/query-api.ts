@@ -229,6 +229,7 @@ export async function fetchNodeRisks(petriNetId: string) {
 export type NetworkScanRequest = {
   target: string;
   nucleiLevel?: 'basic' | 'medium' | 'advanced' | 'cve';
+  specificCves?: string[]; // Optional: specific CVE IDs to test (e.g., ["CVE-2025-32728", "CVE-2025-26465"])
 };
 
 export type CveDiscovery = {

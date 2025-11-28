@@ -1,10 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { TelemetryLayout } from '@/components/layouts/telemetry-layout';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Scan, Loader2, AlertCircle, CheckCircle, Network, Shield } from 'lucide-react';
-import { useState, useCallback } from 'react';
-import { runNetworkScan, type NetworkScanRequest, type NetworkScanResult } from '@/lib/query-api';
+import { Scan, Loader2, AlertCircle, CheckCircle, Shield, CheckSquare, Square } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { runNetworkScan, importCvesFromScan, type NetworkScanRequest, type NetworkScanResult, type CveDiscovery } from '@/lib/query-api';
 
 export const Route = createFileRoute('/__authted/$org/telmentary/$projectId/network-scan')({
   component: RouteComponent,
@@ -12,68 +12,149 @@ export const Route = createFileRoute('/__authted/$org/telmentary/$projectId/netw
 
 function RouteComponent() {
   const { org, projectId } = Route.useParams();
+  const navigate = useNavigate();
   const [target, setTarget] = useState('');
-  const [ports, setPorts] = useState('');
-  const [scanType, setScanType] = useState<'quick' | 'comprehensive' | 'stealth'>('quick');
-  const [vulnScan, setVulnScan] = useState(false);
-  const [scanner, setScanner] = useState<'nmap' | 'nuclei' | 'nessus'>('nuclei');
   const [nucleiLevel, setNucleiLevel] = useState<'basic' | 'medium' | 'advanced' | 'cve'>('basic');
-  const [nessusPolicy, setNessusPolicy] = useState('Basic Network Scan');
-  const [nessusFile, setNessusFile] = useState<File | null>(null);
+  const [specificCves, setSpecificCves] = useState('');
+  const [useSpecificCves, setUseSpecificCves] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<NetworkScanResult | null>(null);
+  const [progress, setProgress] = useState<string[]>([]);
+  const [selectedCves, setSelectedCves] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ success: boolean; message: string } | null>(null);
+  const progressEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (progressEndRef.current) {
+      progressEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [progress]);
 
   const handleScan = useCallback(async () => {
     if (!target.trim()) {
-      setError('Please enter a target IP or CIDR range');
+      setError('Please enter a target URL or IP address');
       return;
     }
 
     setLoading(true);
     setError(null);
     setResult(null);
+    setProgress([]);
+    setSelectedCves(new Set());
+    setImportResult(null);
 
     try {
-      let nessusFileContent: string | undefined;
-      
-      // If Nessus file is uploaded, read it first
-      if (scanner === 'nessus' && nessusFile) {
-        const fileText = await nessusFile.text();
-        nessusFileContent = fileText;
-      }
-
       const scanRequest: NetworkScanRequest = {
         target: target.trim(),
-        orgId: org,
-        projectId: projectId,
-        ports: ports.trim() || undefined,
-        scanType: scanner === 'nmap' ? scanType : undefined,
-        vulnScan: scanner === 'nmap' ? vulnScan : false,
-        scanner,
-        useNessus: scanner === 'nessus',
-        nessusPolicy: scanner === 'nessus' ? nessusPolicy : undefined,
-        nessusFile: scanner === 'nessus' ? nessusFileContent : undefined,
-        nucleiLevel: scanner === 'nuclei' ? nucleiLevel : undefined,
+        nucleiLevel: useSpecificCves ? undefined : nucleiLevel,
+        specificCves: useSpecificCves && specificCves.trim() 
+          ? specificCves.split(',').map(c => c.trim().toUpperCase()).filter(c => c.startsWith('CVE-'))
+          : undefined,
       };
 
+      // Start scan - this will take time
+      setProgress(prev => [...prev, `🚀 Starting CVE discovery scan...`]);
+      setProgress(prev => [...prev, `📡 Target: ${target.trim()}`]);
+      if (useSpecificCves && scanRequest.specificCves) {
+        setProgress(prev => [...prev, `🎯 Testing specific CVEs: ${scanRequest.specificCves!.join(', ')}`]);
+      } else {
+        setProgress(prev => [...prev, `⚙️  Scan level: ${nucleiLevel}`]);
+      }
+      setProgress(prev => [...prev, `⏳ This may take a few minutes. Please wait...`]);
+
       const response = await runNetworkScan(scanRequest);
-      setResult(response.data);
+      
+      if (response.data) {
+        setResult(response.data);
+        if (response.data.progress) {
+          setProgress(response.data.progress);
+        }
+        setProgress(prev => [...prev, `✅ Scan complete! Found ${response.data.totalCves} CVE(s)`]);
+      } else {
+        throw new Error('No data returned from scan');
+      }
     } catch (err: any) {
-      setError(err.message || 'Network scan failed');
-      setResult(null);
+      const errorMsg = err.message || 'Network scan failed';
+      setError(errorMsg);
+      setProgress(prev => [...prev, `❌ Error: ${errorMsg}`]);
     } finally {
       setLoading(false);
     }
-  }, [target, ports, scanType, vulnScan, scanner, nucleiLevel, nessusPolicy, nessusFile, org, projectId]);
+  }, [target, nucleiLevel, useSpecificCves, specificCves]);
+
+  const toggleCve = useCallback((cveId: string) => {
+    setSelectedCves(prev => {
+      const next = new Set(prev);
+      if (next.has(cveId)) {
+        next.delete(cveId);
+      } else {
+        next.add(cveId);
+      }
+      return next;
+    });
+  }, []);
+
+  const selectAll = useCallback(() => {
+    if (result?.cves) {
+      setSelectedCves(new Set(result.cves.map(c => c.cveId)));
+    }
+  }, [result]);
+
+  const deselectAll = useCallback(() => {
+    setSelectedCves(new Set());
+  }, []);
+
+  const handleImport = useCallback(async () => {
+    if (selectedCves.size === 0) {
+      setImportResult({ success: false, message: 'Please select at least one CVE to import' });
+      return;
+    }
+
+    setImporting(true);
+    setImportResult(null);
+
+    try {
+      const cvesToImport = result?.cves.filter(c => selectedCves.has(c.cveId)) || [];
+      const response = await importCvesFromScan(cvesToImport);
+      
+      if (response.data) {
+        const { stored, skipped, predictionsGenerated, predictionErrors } = response.data;
+        let message = `✅ Successfully imported ${stored} CVE(s). `;
+        if (predictionsGenerated > 0) {
+          message += `${predictionsGenerated} threat prediction(s) generated. `;
+        }
+        if (skipped.length > 0) {
+          message += `${skipped.length} skipped. `;
+        }
+        if (predictionErrors.length > 0) {
+          message += `${predictionErrors.length} prediction error(s).`;
+        }
+        setImportResult({ success: true, message });
+        
+        // Clear selection after successful import
+        setTimeout(() => {
+          setSelectedCves(new Set());
+          setImportResult(null);
+          // Optionally navigate to CVE page
+          // navigate({ to: '/$org/telmentary/$projectId/cve', params: { org, projectId } });
+        }, 3000);
+      }
+    } catch (err: any) {
+      setImportResult({ success: false, message: err.message || 'Failed to import CVEs' });
+    } finally {
+      setImporting(false);
+    }
+  }, [selectedCves, result, org, projectId, navigate]);
 
   return (
-    <TelemetryLayout org={org} projectId={projectId} section="Network Scanner">
+    <TelemetryLayout org={org} projectId={projectId} section="CVE Discovery">
       <div className="px-6 py-5 flex-1 min-h-0 flex flex-col gap-5 overflow-auto">
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold text-cyan-400 mb-2">Network Scanner</h1>
-            <p className="text-gray-400">Scan networks for vulnerabilities and import results</p>
+            <h1 className="text-3xl font-bold text-cyan-400 mb-2">CVE Discovery</h1>
+            <p className="text-gray-400">Scan targets for CVE vulnerabilities and import them to your database</p>
           </div>
 
           {/* Scan Configuration */}
@@ -85,109 +166,60 @@ function RouteComponent() {
               {/* Target Input */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Target IP / CIDR Range *
+                  Target URL / IP Address *
                 </label>
                 <input
                   type="text"
                   value={target}
                   onChange={(e) => setTarget(e.target.value)}
-                  placeholder="192.168.1.0/24 or 192.168.1.100"
+                  placeholder="example.com or 192.168.1.100 or https://example.com"
                   className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  disabled={loading}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Examples: 192.168.1.0/24 (subnet), 192.168.1.100 (single host), 10.0.0.0/8 (large network)
+                  Enter a domain, IP address, or full URL to scan for CVEs
                 </p>
               </div>
 
-              {/* Ports Input */}
+              {/* Scan Mode Toggle */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Ports (Optional)
+                <label className="flex items-center gap-3 cursor-pointer mb-4">
+                  <input
+                    type="checkbox"
+                    checked={useSpecificCves}
+                    onChange={(e) => setUseSpecificCves(e.target.checked)}
+                    className="w-5 h-5 rounded border-gray-600 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900"
+                    disabled={loading}
+                  />
+                  <span className="text-sm font-medium text-gray-300">
+                    Test Specific CVEs (instead of scan level)
+                  </span>
                 </label>
-                <input
-                  type="text"
-                  value={ports}
-                  onChange={(e) => setPorts(e.target.value)}
-                  placeholder="80,443,8080,8443 or leave empty for all ports"
-                  className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-                />
               </div>
 
-              {/* Scan Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Scan Type
-                </label>
-                <div className="flex gap-4">
-                  {(['quick', 'comprehensive', 'stealth'] as const).map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setScanType(type)}
-                      className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                        scanType === type
-                          ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/50'
-                          : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                      }`}
-                    >
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
-                    </button>
-                  ))}
+              {/* Specific CVEs Input */}
+              {useSpecificCves && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    CVE IDs to Test *
+                  </label>
+                  <input
+                    type="text"
+                    value={specificCves}
+                    onChange={(e) => setSpecificCves(e.target.value)}
+                    placeholder="CVE-2025-32728, CVE-2025-26465"
+                    className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enter comma-separated CVE IDs (e.g., CVE-2025-32728, CVE-2025-26465). 
+                    Only these specific CVEs will be tested.
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  <strong>Quick:</strong> Fast version detection |{' '}
-                  <strong>Comprehensive:</strong> Full scan with OS detection |{' '}
-                  <strong>Stealth:</strong> SYN scan (slower, less detectable)
-                </p>
-              </div>
+              )}
 
-              {/* Scanner Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Scanner Type
-                </label>
-                <div className="flex gap-4 mb-4 flex-wrap">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="scanner"
-                      checked={scanner === 'nuclei'}
-                      onChange={() => setScanner('nuclei')}
-                      className="w-4 h-4 border-gray-600 bg-gray-900 text-cyan-500 focus:ring-cyan-500"
-                    />
-                    <span className="text-sm text-gray-300">
-                      <strong className="text-cyan-400">Nuclei</strong> (Known CVEs)
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="scanner"
-                      checked={scanner === 'nmap'}
-                      onChange={() => setScanner('nmap')}
-                      className="w-4 h-4 border-gray-600 bg-gray-900 text-cyan-500 focus:ring-cyan-500"
-                    />
-                    <span className="text-sm text-gray-300">Nmap (Network Discovery)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="scanner"
-                      checked={scanner === 'nessus'}
-                      onChange={() => setScanner('nessus')}
-                      className="w-4 h-4 border-gray-600 bg-gray-900 text-cyan-500 focus:ring-cyan-500"
-                    />
-                    <span className="text-sm text-gray-300">Nessus (Professional)</span>
-                  </label>
-                </div>
-                <p className="text-xs text-gray-500">
-                  <strong>Nuclei:</strong> Target known CVEs with templated scans |
-                  <strong className="ml-1">Nmap:</strong> Port and service discovery (optional vuln scripts) |
-                  <strong className="ml-1">Nessus:</strong> Import professional scanner results
-                </p>
-              </div>
-
-              {/* Nuclei Options */}
-              {scanner === 'nuclei' && (
+              {/* Scan Level (only if not using specific CVEs) */}
+              {!useSpecificCves && (
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Scan Level
@@ -196,103 +228,94 @@ function RouteComponent() {
                     value={nucleiLevel}
                     onChange={(e) => setNucleiLevel(e.target.value as typeof nucleiLevel)}
                     className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                    disabled={loading}
                   >
-                    <option value="basic">Basic (Low & Medium severity)</option>
-                    <option value="medium">Medium (High severity)</option>
-                    <option value="advanced">Advanced (Critical only)</option>
-                    <option value="cve">CVE Templates (http/cves)</option>
+                    <option value="basic">Basic (Low & Medium severity only)</option>
+                    <option value="medium">Medium (High severity only)</option>
+                    <option value="advanced">Advanced (Critical severity only)</option>
+                    <option value="cve">CVE Templates (ALL CVEs - Recommended)</option>
                   </select>
                   <p className="text-xs text-gray-500 mt-1">
-                    Choose how aggressive the scan should be. Advanced targets only critical findings; Basic covers broader detections.
+                    <strong>Recommended:</strong> Use "CVE Templates" to scan for ALL CVEs regardless of severity. 
+                    Other levels only test specific severity ranges (e.g., "Basic" won't find High/Critical CVEs).
                   </p>
                 </div>
               )}
 
-              {/* Nmap Options */}
-              {scanner === 'nmap' && (
-                <div>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={vulnScan}
-                      onChange={(e) => setVulnScan(e.target.checked)}
-                      className="w-5 h-5 rounded border-gray-600 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900"
-                    />
-                    <span className="text-sm font-medium text-gray-300">
-                      Enable Vulnerability Scanning (nmap --script vuln)
-                    </span>
-                  </label>
-                  <p className="text-xs text-gray-500 mt-1 ml-8">
-                    Uses nmap vulnerability scripts to discover CVEs (slower but more thorough)
-                  </p>
-                </div>
-              )}
-
-              {/* Nessus Options (only if using Nessus) */}
-              {scanner === 'nessus' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Nessus Policy Template
-                    </label>
-                    <select
-                      value={nessusPolicy}
-                      onChange={(e) => setNessusPolicy(e.target.value)}
-                      className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-                    >
-                      <option value="Basic Network Scan">Basic Network Scan</option>
-                      <option value="Web App Tests">Web App Tests</option>
-                      <option value="Internal Network Scan">Internal Network Scan</option>
-                      <option value="PCI Quarterly External Scan">PCI Quarterly External Scan</option>
-                      <option value="Advanced Scan">Advanced Scan</option>
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Select the Nessus policy template to use for scanning
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Or Import Nessus File (.nessus)
-                    </label>
-                    <input
-                      type="file"
-                      accept=".nessus"
-                      onChange={(e) => setNessusFile(e.target.files?.[0] || null)}
-                      className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white text-sm file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-cyan-500 file:text-white hover:file:bg-cyan-600"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Upload a .nessus scan result file to import CVEs directly (alternative to running a new scan)
-                    </p>
-                  </div>
-                  
-                  <div className="bg-cyan-900/20 border border-cyan-500/30 rounded-lg p-4">
-                    <p className="text-sm text-cyan-300 font-semibold mb-2">📋 Nessus Configuration Required</p>
-                    <p className="text-xs text-gray-400 mb-2">
-                      To run Nessus scans directly, configure these environment variables:
-                    </p>
-                    <ul className="text-xs text-gray-400 space-y-1 list-disc list-inside">
-                      <li><code className="text-cyan-400">NESSUS_URL</code> - Nessus server URL (default: https://localhost:8834)</li>
-                      <li><code className="text-cyan-400">NESSUS_ACCESS_KEY</code> + <code className="text-cyan-400">NESSUS_SECRET_KEY</code> - For Tenable.io</li>
-                      <li><code className="text-cyan-400">NESSUS_USERNAME</code> + <code className="text-cyan-400">NESSUS_PASSWORD</code> - For Nessus Professional</li>
-                    </ul>
-                  </div>
-                </>
-              )}
+              {/* Update Templates Button */}
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                <p className="text-sm text-yellow-300 font-semibold mb-2">⚠️ Template Update Required</p>
+                <p className="text-xs text-gray-400 mb-3">
+                  If scanning for 2025 CVEs, make sure Nuclei templates are up-to-date. 
+                  Click below to update templates before scanning.
+                </p>
+                <Button
+                  onClick={async () => {
+                    setProgress(prev => [...prev, "🔄 Updating Nuclei templates..."]);
+                    try {
+                      const response = await fetch(`${import.meta.env.VITE_QUERY_API || 'http://localhost:8000'}/network-scan/update-templates`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${import.meta.env.VITE_QUERY_TOKEN || ''}`,
+                        },
+                      });
+                      const data = await response.json();
+                      if (data.data?.progress) {
+                        setProgress(prev => [...prev, ...data.data.progress]);
+                      }
+                      if (data.data?.success) {
+                        setProgress(prev => [...prev, "✅ Templates updated! You can now scan for the latest CVEs."]);
+                      } else {
+                        setProgress(prev => [...prev, `❌ Update failed: ${data.data?.message || 'Unknown error'}`]);
+                      }
+                    } catch (err: any) {
+                      setProgress(prev => [...prev, `❌ Update failed: ${err.message}`]);
+                    }
+                  }}
+                  disabled={loading}
+                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Update Nuclei Templates
+                </Button>
+              </div>
 
               {/* Scan Button */}
               <div>
                 <Button
                   onClick={handleScan}
-                  disabled={loading || !target.trim()}
+                  disabled={loading || !target.trim() || (useSpecificCves && !specificCves.trim())}
                   icon={loading ? <Loader2 size={16} className="animate-spin" /> : <Scan size={16} />}
                   className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-3 rounded-lg shadow-lg shadow-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Scanning Network...' : 'Start Network Scan'}
+                  {loading ? 'Scanning for CVEs...' : 'Start CVE Discovery Scan'}
                 </Button>
               </div>
             </div>
           </Card>
+
+          {/* Progress Display */}
+          {(loading || progress.length > 0) && (
+            <Card>
+              <CardHeader>
+                <h2 className="text-xl font-semibold text-cyan-300">Scan Progress</h2>
+              </CardHeader>
+              <div className="p-6">
+                <div className="bg-black/40 rounded-lg p-4 font-mono text-sm text-gray-300 max-h-64 overflow-y-auto">
+                  {progress.length === 0 ? (
+                    <div className="text-gray-500">Waiting for scan to start...</div>
+                  ) : (
+                    progress.map((msg, idx) => (
+                      <div key={idx} className="mb-1">
+                        {msg}
+                      </div>
+                    ))
+                  )}
+                  <div ref={progressEndRef} />
+                </div>
+              </div>
+            </Card>
+          )}
 
           {/* Error Display */}
           {error && (
@@ -308,177 +331,109 @@ function RouteComponent() {
           )}
 
           {/* Results Display */}
-          {result && (
+          {result && result.cves.length > 0 && (
             <Card className="border-green-500">
               <CardHeader>
-                <div className="flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                  <h2 className="text-xl font-semibold text-green-400">Scan Results</h2>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <h2 className="text-xl font-semibold text-green-400">
+                      Discovered CVEs ({result.totalCves})
+                    </h2>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={selectAll}
+                      className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={deselectAll}
+                      className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
+                    >
+                      Deselect All
+                    </button>
+                  </div>
                 </div>
               </CardHeader>
-              <div className="p-6 space-y-6">
-                {/* Summary Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-gray-900 p-4 rounded-lg">
-                    <div className="text-sm text-gray-400 mb-1">Hosts Found</div>
-                    <div className="text-2xl font-bold text-cyan-400">{result.hostsFound}</div>
-                  </div>
-                  <div className="bg-gray-900 p-4 rounded-lg">
-                    <div className="text-sm text-gray-400 mb-1">Services</div>
-                    <div className="text-2xl font-bold text-purple-400">{result.totalServices}</div>
-                  </div>
-                  <div className="bg-gray-900 p-4 rounded-lg">
-                    <div className="text-sm text-gray-400 mb-1">Vulnerabilities</div>
-                    <div className="text-2xl font-bold text-red-400">{result.totalVulnerabilities}</div>
-                  </div>
-                  <div className="bg-gray-900 p-4 rounded-lg">
-                    <div className="text-sm text-gray-400 mb-1">Threats Detected</div>
-                    <div className="text-2xl font-bold text-orange-400">{result.threatsDetected || 0}</div>
-                  </div>
-                </div>
-
-                {/* Auto Actions Taken */}
-                {result.threatsDetected !== undefined && result.threatsDetected > 0 && (
-                  <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-lg">
-                    <h3 className="text-yellow-400 font-semibold mb-2">🔍 Threat Detection Complete</h3>
-                    <ul className="text-sm text-gray-300 space-y-1">
-                      <li>✅ {result.threatsDetected} threat(s) detected</li>
-                      {result.criticalThreats !== undefined && result.criticalThreats > 0 && (
-                        <li>⚠️ {result.criticalThreats} critical/high threat(s) found</li>
-                      )}
-                      <li>✅ ML threat predictions generated for discovered CVEs</li>
-                    </ul>
-                  </div>
-                )}
-
-                {/* Detected Threats */}
-                {result.threats && result.threats.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-red-300 mb-4">🚨 Detected Threats</h3>
-                    <div className="space-y-3">
-                      {result.threats.map((threat, idx) => (
-                        <div key={idx} className="bg-gray-900 p-4 rounded-lg border border-red-500/30">
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="font-mono text-red-400">{threat.ip}</span>
-                                <span className={`px-2 py-1 rounded text-xs ${
-                                  threat.threatLevel === 'critical' ? 'bg-red-500/20 text-red-300' :
-                                  threat.threatLevel === 'high' ? 'bg-orange-500/20 text-orange-300' :
-                                  'bg-yellow-500/20 text-yellow-300'
-                                }`}>
-                                  {threat.threatLevel}
-                                </span>
-                                <span className="text-xs text-gray-400">Risk: {threat.riskScore}%</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            {threat.threats.map((t, tIdx) => (
-                              <div key={tIdx} className="text-sm text-gray-300">
-                                • {t.description} {t.cve && <span className="text-red-400 font-mono">{t.cve}</span>}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-
-                {/* Host Details */}
-                {result.hosts && result.hosts.length > 0 && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-cyan-300 mb-4">Discovered Hosts</h3>
-                    <div className="space-y-4">
-                      {result.hosts.map((host, idx) => (
-                        <div key={idx} className="bg-gray-900 p-4 rounded-lg border border-gray-700">
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <Network className="w-4 h-4 text-cyan-400" />
-                                <span className="font-mono text-cyan-400">{host.ip}</span>
-                                {host.hostname && (
-                                  <span className="text-gray-400">({host.hostname})</span>
-                                )}
-                              </div>
-                              {host.os && (
-                                <div className="text-sm text-gray-400">OS: {host.os}</div>
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              {host.services && host.services.length > 0 && (
-                                <span className="px-2 py-1 bg-purple-500/20 text-purple-300 rounded text-xs">
-                                  {host.services.length} services
-                                </span>
-                              )}
-                              {host.vulnerabilities && host.vulnerabilities.length > 0 && (
-                                <span className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs">
-                                  {host.vulnerabilities.length} vulns
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Services */}
-                          {host.services && host.services.length > 0 && (
-                            <div className="mb-3">
-                              <div className="text-sm font-medium text-gray-300 mb-2">Services:</div>
-                              <div className="flex flex-wrap gap-2">
-                                {host.services.map((service, sIdx) => (
-                                  <div
-                                    key={sIdx}
-                                    className="px-2 py-1 bg-gray-800 rounded text-xs font-mono"
-                                  >
-                                    {service.port}/{service.protocol} - {service.service}
-                                    {service.version && ` (${service.version})`}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
+              <div className="p-6 space-y-4">
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {result.cves.map((cve) => (
+                    <div
+                      key={cve.cveId}
+                      className="bg-gray-900 p-4 rounded-lg border border-gray-700 hover:border-cyan-500/50 transition-colors"
+                    >
+                      <div className="flex items-start gap-3">
+                        <button
+                          onClick={() => toggleCve(cve.cveId)}
+                          className="mt-1 flex-shrink-0"
+                        >
+                          {selectedCves.has(cve.cveId) ? (
+                            <CheckSquare className="w-5 h-5 text-cyan-400" />
+                          ) : (
+                            <Square className="w-5 h-5 text-gray-500" />
                           )}
-
-                          {/* Vulnerabilities */}
-                          {host.vulnerabilities && host.vulnerabilities.length > 0 && (
-                            <div>
-                              <div className="text-sm font-medium text-red-300 mb-2">Vulnerabilities:</div>
-                              <div className="space-y-1">
-                                {host.vulnerabilities.map((vuln, vIdx) => (
-                                  <div key={vIdx} className="text-xs text-gray-400">
-                                    {vuln.cve && (
-                                      <span className="text-red-400 font-mono">{vuln.cve}</span>
-                                    )}
-                                    {vuln.description && (
-                                      <span className="ml-2">{vuln.description.substring(0, 100)}</span>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="font-mono text-red-400 font-semibold">{cve.cveId}</span>
+                            {cve.severity && (
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                cve.severity >= 9 ? 'bg-red-500/20 text-red-300' :
+                                cve.severity >= 7 ? 'bg-orange-500/20 text-orange-300' :
+                                cve.severity >= 5 ? 'bg-yellow-500/20 text-yellow-300' :
+                                'bg-gray-500/20 text-gray-300'
+                              }`}>
+                                CVSS: {cve.severity.toFixed(1)}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-300 mb-2">{cve.description}</p>
+                          {cve.host && (
+                            <p className="text-xs text-gray-500">Host: {cve.host}</p>
                           )}
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-
-                {/* Next Steps */}
-                <div className="bg-cyan-500/10 border border-cyan-500/30 p-4 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <Shield className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="text-cyan-300 font-semibold mb-2">Next Steps</h4>
-                      <ul className="text-sm text-gray-300 space-y-1">
-                        <li>✅ Scan results have been imported to your database</li>
-                        <li>✅ Threats detected and analyzed</li>
-                        <li>✅ ML predictions generated for discovered CVEs</li>
-                        <li>💡 View detected threats and vulnerabilities above</li>
-                        <li>📊 Check CVE cards for detailed threat information</li>
-                      </ul>
-                    </div>
-                  </div>
+                  ))}
                 </div>
+
+                {/* Import Button */}
+                <div className="pt-4 border-t border-gray-700">
+                  <Button
+                    onClick={handleImport}
+                    disabled={importing || selectedCves.size === 0}
+                    icon={importing ? <Loader2 size={16} className="animate-spin" /> : <Shield size={16} />}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-lg shadow-lg shadow-green-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {importing
+                      ? `Importing ${selectedCves.size} CVE(s)...`
+                      : `Send ${selectedCves.size} Selected CVE(s) to CVE Vulnerabilities`}
+                  </Button>
+                  {importResult && (
+                    <div className={`mt-3 p-3 rounded-lg ${
+                      importResult.success
+                        ? 'bg-green-500/20 border border-green-500/30 text-green-300'
+                        : 'bg-red-500/20 border border-red-500/30 text-red-300'
+                    }`}>
+                      {importResult.message}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* No Results */}
+          {result && result.cves.length === 0 && (
+            <Card>
+              <div className="p-6 text-center">
+                <CheckCircle className="w-12 h-12 text-gray-500 mx-auto mb-3" />
+                <h3 className="text-lg font-semibold text-gray-300 mb-2">No CVEs Found</h3>
+                <p className="text-gray-400">
+                  The scan completed but no CVEs were discovered. Try a different target or scan level.
+                </p>
               </div>
             </Card>
           )}
@@ -486,26 +441,24 @@ function RouteComponent() {
           {/* Info Card */}
           <Card>
             <CardHeader>
-              <h2 className="text-xl font-semibold text-cyan-300">About Network Scanning</h2>
+              <h2 className="text-xl font-semibold text-cyan-300">About CVE Discovery</h2>
             </CardHeader>
             <div className="p-6 space-y-4 text-sm text-gray-300">
               <div>
                 <h3 className="font-semibold text-cyan-400 mb-2">⚠️ Legal & Ethical</h3>
                 <ul className="list-disc list-inside space-y-1 text-gray-400">
-                  <li>Only scan networks you own or have explicit permission to scan</li>
+                  <li>Only scan targets you own or have explicit permission to scan</li>
                   <li>Unauthorized scanning is illegal in many jurisdictions</li>
                   <li>Get written authorization before scanning</li>
-                  <li>Respect rate limits and don't overload networks</li>
                 </ul>
               </div>
               <div>
-                <h3 className="font-semibold text-cyan-400 mb-2">🔍 What Gets Scanned</h3>
+                <h3 className="font-semibold text-cyan-400 mb-2">🔍 How It Works</h3>
                 <ul className="list-disc list-inside space-y-1 text-gray-400">
-                  <li>Host discovery (live hosts on the network)</li>
-                  <li>Port scanning (open ports and services)</li>
-                  <li>Service detection (running services and versions)</li>
-                  <li>OS detection (operating system identification)</li>
-                  <li>Vulnerability detection (CVE matching and exploit detection)</li>
+                  <li>Scans use Nuclei to discover known CVEs</li>
+                  <li>Results are displayed with severity scores</li>
+                  <li>Select CVEs you want to track and import them</li>
+                  <li>Imported CVEs will have ML threat predictions generated automatically</li>
                 </ul>
               </div>
             </div>
@@ -515,4 +468,3 @@ function RouteComponent() {
     </TelemetryLayout>
   );
 }
-

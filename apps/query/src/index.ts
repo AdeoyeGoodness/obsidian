@@ -1149,44 +1149,94 @@ const app = new Elysia()
   )
   // Removed: /simulations/run endpoint - defense features removed
   .post(
+    "/network-scan/update-templates",
+    async ({ set }) => {
+      const { updateNucleiTemplates } = await import("./lib/nuclei-templates.js");
+      const progressMessages: string[] = [];
+      
+      const result = await updateNucleiTemplates((msg) => {
+        progressMessages.push(msg);
+        console.log(`[Template Update] ${msg}`);
+      });
+      
+      return {
+        data: {
+          success: result.success,
+          message: result.message,
+          progress: progressMessages,
+        },
+      };
+    },
+    {
+      authenticate: true,
+    }
+  )
+  .post(
     "/network-scan/run",
-    async ({ body, org_id, project_id }) => {
+    async ({ body, org_id, project_id, set }) => {
       if (!db) return { error: "Database unavailable" };
 
       console.log(`[Network Scan] 📡 CVE discovery request received`);
       console.log(`[Network Scan]   Target: ${body.target}`);
       console.log(`[Network Scan]   Level: ${body.nucleiLevel || "basic"}`);
+      if (body.specificCves) {
+        console.log(`[Network Scan]   Specific CVEs: ${body.specificCves.join(", ")}`);
+      }
+
+      // Set headers for streaming response
+      set.headers["Content-Type"] = "application/json";
+      set.headers["Cache-Control"] = "no-cache";
+      set.headers["Connection"] = "keep-alive";
+
+      const progressMessages: string[] = [];
+      const cveFindings: Array<{
+        cveId: string;
+        description: string;
+        severity?: number | null;
+        host?: string;
+        ip?: string;
+      }> = [];
 
       try {
-        const { runNucleiScan } = await import("./lib/nuclei-scan.js");
+        const { runNucleiScanStream } = await import("./lib/nuclei-scan-stream.js");
         const level = body.nucleiLevel || "basic";
-        const nucleiResults = await runNucleiScan({
+        const specificCves = body.specificCves && Array.isArray(body.specificCves) ? body.specificCves : undefined;
+        
+        const nucleiResults = await runNucleiScanStream({
           target: body.target,
           level,
+          specificCves,
           orgId: org_id,
           projectId: project_id,
+          onProgress: (msg) => {
+            progressMessages.push(msg);
+            console.log(`[Scan Progress] ${msg}`);
+          },
+          onCveFound: (cve) => {
+            cveFindings.push({
+              cveId: cve.cveId,
+              description: cve.description,
+              severity: cve.severity ?? null,
+            });
+          },
         });
 
         console.log(`[Network Scan] ✅ Nuclei returned ${nucleiResults.length} host result(s)`);
 
-        const cveFindings: Array<{
-          cveId: string;
-          description: string;
-          severity?: number | null;
-          host?: string;
-          ip?: string;
-        }> = [];
-
+        // Extract all CVEs from results
         for (const host of nucleiResults) {
           for (const vuln of host.vulnerabilities) {
             if (!vuln.cve) continue;
-            cveFindings.push({
-              cveId: vuln.cve,
-              description: vuln.description || "No description provided",
-              severity: vuln.severity ?? null,
-              host: host.host,
-              ip: host.ip,
-            });
+            // Avoid duplicates
+            if (!cveFindings.find(c => c.cveId === vuln.cve)) {
+              cveFindings.push({
+                cveId: vuln.cve,
+                description: vuln.description || "No description provided",
+                severity: vuln.severity ?? null,
+                host: host.host,
+                ip: host.ip,
+              });
+            }
           }
         }
 
@@ -1215,12 +1265,14 @@ const app = new Elysia()
             totalHosts: nucleiResults.length,
             totalCves: cveFindings.length,
             cves: cveFindings,
+            progress: progressMessages,
           },
         };
       } catch (err: any) {
         console.error("Network scan error:", err);
         return {
           error: err.message || "Network scan failed",
+          progress: progressMessages,
         };
       }
     },
@@ -1231,6 +1283,7 @@ const app = new Elysia()
         nucleiLevel: t.Optional(
           t.Union([t.Literal("basic"), t.Literal("medium"), t.Literal("advanced"), t.Literal("cve")])
         ),
+        specificCves: t.Optional(t.Array(t.String())), // Optional: specific CVE IDs to test
       }),
     }
   )
@@ -1255,20 +1308,20 @@ const app = new Elysia()
 
         try {
           await db.query(
-            `INSERT INTO cve_records (id, org_id, project_id, cve_id, description, source, affected_component, severity)
+            `INSERT INTO cve_records (id, org_id, project_id, cve_id, description, source, severity, raw)
              VALUES (gen_random_uuid(), $1, $2, $3, $4, 'manual-import', $5, $6)
              ON CONFLICT (org_id, project_id, cve_id)
              DO UPDATE SET
                description = COALESCE(EXCLUDED.description, cve_records.description),
                severity = COALESCE(EXCLUDED.severity, cve_records.severity),
-               affected_component = COALESCE(EXCLUDED.affected_component, cve_records.affected_component)`,
+               raw = EXCLUDED.raw`,
             [
               org_id,
               project_id,
               entry.cveId,
               entry.description ?? null,
-              entry.host ?? null,
-              entry.severity ?? null,
+              entry.severity ? { score: entry.severity } : null,
+              { host: entry.host, ip: entry.ip },
             ]
           );
           stored.push(entry.cveId);
@@ -1297,6 +1350,7 @@ const app = new Elysia()
       };
     },
     {
+      authenticate: true,
       body: t.Object({
         cves: t.Array(
           t.Object({
