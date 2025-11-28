@@ -4,7 +4,7 @@ import { Card, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Scan, Loader2, AlertCircle, CheckCircle, Shield, CheckSquare, Square } from 'lucide-react';
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { runNetworkScan, importCvesFromScan, type NetworkScanRequest, type NetworkScanResult, type CveDiscovery } from '@/lib/query-api';
+import { runNetworkScan, importCvesFromScan, lookupCves, type NetworkScanRequest, type NetworkScanResult, type CveDiscovery, type CVEInfo } from '@/lib/query-api';
 
 export const Route = createFileRoute('/__authted/$org/telmentary/$projectId/network-scan')({
   component: RouteComponent,
@@ -19,7 +19,7 @@ function RouteComponent() {
   const [useSpecificCves, setUseSpecificCves] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<NetworkScanResult | null>(null);
+  const [result, setResult] = useState<(NetworkScanResult & { hosts?: any[]; progress?: string[] }) | null>(null);
   const [progress, setProgress] = useState<string[]>([]);
   const [selectedCves, setSelectedCves] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
@@ -27,9 +27,27 @@ function RouteComponent() {
   const progressEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (progressEndRef.current) {
-      progressEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    // Use requestAnimationFrame to ensure DOM is ready
+    const scrollToBottom = () => {
+      if (progressEndRef.current) {
+        try {
+          // Check if the element is still in the DOM
+          if (progressEndRef.current.isConnected) {
+            progressEndRef.current.scrollIntoView({ behavior: 'smooth' });
+          }
+        } catch (err) {
+          // Silently ignore scroll errors (element might have been removed)
+          console.debug('Scroll error (ignored):', err);
+        }
+      }
+    };
+    
+    // Delay slightly to ensure DOM updates are complete
+    const timeoutId = setTimeout(() => {
+      requestAnimationFrame(scrollToBottom);
+    }, 50);
+    
+    return () => clearTimeout(timeoutId);
   }, [progress]);
 
   const handleScan = useCallback(async () => {
@@ -242,12 +260,83 @@ function RouteComponent() {
                 </div>
               )}
 
+              {/* NVD API CVE Lookup (Alternative to Nuclei) */}
+              {useSpecificCves && specificCves.trim() && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                  <p className="text-sm text-green-300 font-semibold mb-2">✨ Alternative: NVD API Lookup</p>
+                  <p className="text-xs text-gray-400 mb-3">
+                    Instead of Nuclei scanning, you can directly lookup CVE details from the official NVD database.
+                    This is more reliable for 2025 CVEs and doesn't require templates.
+                  </p>
+                  <Button
+                    onClick={async () => {
+                      setLoading(true);
+                      setProgress(prev => [...prev, "🔍 Looking up CVEs from NVD API (official CVE database)..."]);
+                      try {
+                        const cveIds = specificCves.split(',').map(c => c.trim().toUpperCase()).filter(c => c.startsWith('CVE-'));
+                        if (cveIds.length === 0) {
+                          setError('Please enter valid CVE IDs (e.g., CVE-2025-32728)');
+                          setLoading(false);
+                          return;
+                        }
+                        
+                        setProgress(prev => [...prev, `📡 Querying NVD for: ${cveIds.join(', ')}`]);
+                        const response = await lookupCves(cveIds);
+                        
+                        if (response.data?.cves && response.data.cves.length > 0) {
+                          setProgress(prev => [...prev, `✅ Found ${response.data.cves.length} CVE(s) from NVD`]);
+                          
+                          // Convert to scan result format
+                          const cveFindings = response.data.cves.map((cve: CVEInfo) => ({
+                            cveId: cve.cveId,
+                            description: cve.description,
+                            severity: cve.severity ?? null,
+                            host: target.trim(),
+                            ip: target.trim(),
+                          }));
+                          
+                          // Display results
+                          setResult({
+                            hosts: [{
+                              host: target.trim(),
+                              ip: target.trim(),
+                              vulnerabilities: cveFindings.map(c => ({
+                                cve: c.cveId,
+                                severity: c.severity ?? 5.0,
+                                description: c.description,
+                              })),
+                            }],
+                            progress: progress,
+                          });
+                          
+                          // Auto-select all found CVEs
+                          setSelectedCves(new Set(cveFindings.map(c => c.cveId)));
+                          
+                          setProgress(prev => [...prev, `💡 Tip: Review the CVEs below and click "Send to CVE Vulnerabilities" to import them.`]);
+                        } else {
+                          setProgress(prev => [...prev, `⚠️  No CVEs found in NVD database for those IDs. They may not exist or may be reserved.`]);
+                        }
+                      } catch (err: any) {
+                        setError(`NVD lookup failed: ${err.message}`);
+                        setProgress(prev => [...prev, `❌ Error: ${err.message}`]);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading || !specificCves.trim()}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Lookup CVEs from NVD API
+                  </Button>
+                </div>
+              )}
+
               {/* Update Templates Button */}
               <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
-                <p className="text-sm text-yellow-300 font-semibold mb-2">⚠️ Template Update Required</p>
+                <p className="text-sm text-yellow-300 font-semibold mb-2">⚠️ Nuclei Template Update</p>
                 <p className="text-xs text-gray-400 mb-3">
-                  If scanning for 2025 CVEs, make sure Nuclei templates are up-to-date. 
-                  Click below to update templates before scanning.
+                  If using Nuclei scanning, make sure templates are up-to-date. 
+                  For 2025 CVEs, consider using NVD API lookup instead (above).
                 </p>
                 <Button
                   onClick={async () => {
@@ -280,7 +369,103 @@ function RouteComponent() {
                 </Button>
               </div>
 
-              {/* Scan Button */}
+              {/* Scan Mode Selection */}
+              <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                <p className="text-sm text-blue-300 font-semibold mb-2">🎯 Smart CVE Discovery</p>
+                <p className="text-xs text-gray-400 mb-3">
+                  <strong>Recommended:</strong> Uses Nmap to discover services/versions, then matches them to CVEs from NVD database.
+                  This actually scans your network and identifies vulnerabilities based on what's running.
+                </p>
+                <Button
+                  onClick={async () => {
+                    setLoading(true);
+                    setError(null);
+                    setResult(null);
+                    setProgress([]);
+                    
+                    try {
+                      setProgress(prev => [...prev, "🚀 Starting Smart CVE Discovery..."]);
+                      setProgress(prev => [...prev, "📡 Target: " + target.trim()]);
+                      setProgress(prev => [...prev, "⏳ This will: 1) Scan network 2) Discover services 3) Match to CVEs"]);
+                      
+                      const response = await fetch(`${import.meta.env.VITE_QUERY_API || 'http://localhost:8000'}/network-scan/run-smart`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${import.meta.env.VITE_QUERY_TOKEN || ''}`,
+                        },
+                        body: JSON.stringify({
+                          target: target.trim(),
+                          scanType: 'comprehensive', // Get version info
+                        }),
+                      });
+                      
+                      if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                        throw new Error(errorData.error || `HTTP ${response.status}`);
+                      }
+                      
+                      const data = await response.json();
+                      
+                      if (data.error) {
+                        throw new Error(data.error);
+                      }
+                      
+                      if (data.data?.progress) {
+                        setProgress(prev => [...prev, ...data.data.progress]);
+                      }
+                      
+                      if (data.data?.hosts) {
+                        // Extract CVEs from hosts
+                        const allCves = new Set<string>();
+                        const cveList: Array<{ cveId: string; description: string; severity?: number | null; host?: string; ip?: string }> = [];
+                        
+                        for (const host of data.data.hosts) {
+                          for (const vuln of host.vulnerabilities || []) {
+                            if (vuln.cve && !allCves.has(vuln.cve)) {
+                              allCves.add(vuln.cve);
+                              cveList.push({
+                                cveId: vuln.cve,
+                                description: vuln.description || 'No description',
+                                severity: vuln.severity ?? null,
+                                host: host.host,
+                                ip: host.ip,
+                              });
+                            }
+                          }
+                        }
+                        
+                        // Build result in the expected format
+                        setResult({
+                          target: target.trim(),
+                          level: 'cve' as const, // Smart scan uses CVE matching
+                          discoveredAt: new Date().toISOString(),
+                          totalHosts: data.data.hosts.length,
+                          totalCves: cveList.length,
+                          cves: cveList,
+                          hosts: data.data.hosts, // Keep hosts for display
+                          progress: progress,
+                        });
+                        
+                        setSelectedCves(allCves);
+                        
+                        setProgress(prev => [...prev, `✅ Scan complete! Found ${cveList.length} unique CVE(s) across ${data.data.hosts.length} host(s)`]);
+                      }
+                    } catch (err: any) {
+                      setError(err.message || 'Scan failed');
+                      setProgress(prev => [...prev, `❌ Error: ${err.message}`]);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading || !target.trim()}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg shadow-lg shadow-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed mb-3"
+                >
+                  {loading ? 'Scanning Network...' : '🔍 Smart CVE Discovery (Nmap + NVD)'}
+                </Button>
+              </div>
+
+              {/* Scan Button (Nuclei) */}
               <div>
                 <Button
                   onClick={handleScan}
@@ -288,7 +473,7 @@ function RouteComponent() {
                   icon={loading ? <Loader2 size={16} className="animate-spin" /> : <Scan size={16} />}
                   className="w-full bg-cyan-500 hover:bg-cyan-600 text-white font-semibold py-3 rounded-lg shadow-lg shadow-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Scanning for CVEs...' : 'Start CVE Discovery Scan'}
+                  {loading ? 'Scanning for CVEs...' : 'Start Nuclei Scan (Alternative)'}
                 </Button>
               </div>
             </div>
@@ -306,7 +491,7 @@ function RouteComponent() {
                     <div className="text-gray-500">Waiting for scan to start...</div>
                   ) : (
                     progress.map((msg, idx) => (
-                      <div key={idx} className="mb-1">
+                      <div key={`progress-${idx}-${msg.substring(0, 20)}`} className="mb-1">
                         {msg}
                       </div>
                     ))
@@ -331,7 +516,7 @@ function RouteComponent() {
           )}
 
           {/* Results Display */}
-          {result && result.cves.length > 0 && (
+          {result && result.cves && result.cves.length > 0 && (
             <Card className="border-green-500">
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -426,7 +611,7 @@ function RouteComponent() {
           )}
 
           {/* No Results */}
-          {result && result.cves.length === 0 && (
+          {result && result.cves && result.cves.length === 0 && (
             <Card>
               <div className="p-6 text-center">
                 <CheckCircle className="w-12 h-12 text-gray-500 mx-auto mb-3" />

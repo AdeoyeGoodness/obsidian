@@ -1148,6 +1148,67 @@ const app = new Elysia()
     { authenticate: true }
   )
   // Removed: /simulations/run endpoint - defense features removed
+  
+  // NVD API-based CVE lookup (alternative to Nuclei)
+  .post(
+    "/cve/lookup",
+    async ({ body }) => {
+      const { getCvesByIds } = await import("./lib/nvd-api.js");
+      
+      const cveIds = body.cveIds || [];
+      if (!Array.isArray(cveIds) || cveIds.length === 0) {
+        return { error: "No CVE IDs provided" };
+      }
+      
+      console.log(`[CVE Lookup] Looking up ${cveIds.length} CVE(s) from NVD API`);
+      
+      const results = await getCvesByIds(cveIds);
+      
+      return {
+        data: {
+          found: results.length,
+          cves: results,
+        },
+      };
+    },
+    {
+      authenticate: true,
+      body: t.Object({
+        cveIds: t.Array(t.String()),
+      }),
+    }
+  )
+  .post(
+    "/cve/search",
+    async ({ body }) => {
+      const { searchCves } = await import("./lib/nvd-api.js");
+      
+      const keyword = body.keyword?.trim();
+      if (!keyword) {
+        return { error: "Keyword required" };
+      }
+      
+      const limit = body.limit || 20;
+      
+      console.log(`[CVE Search] Searching NVD for: "${keyword}"`);
+      
+      const results = await searchCves(keyword, limit);
+      
+      return {
+        data: {
+          found: results.length,
+          cves: results,
+        },
+      };
+    },
+    {
+      authenticate: true,
+      body: t.Object({
+        keyword: t.String(),
+        limit: t.Optional(t.Number()),
+      }),
+    }
+  )
   .post(
     "/network-scan/update-templates",
     async ({ set }) => {
@@ -1169,6 +1230,82 @@ const app = new Elysia()
     },
     {
       authenticate: true,
+    }
+  )
+  .post(
+    "/network-scan/run-smart",
+    async ({ body, org_id, project_id, set }) => {
+      if (!db) return { error: "Database unavailable" };
+
+      console.log(`[Smart Network Scan] 📡 CVE discovery request received`);
+      console.log(`[Smart Network Scan]   Target: ${body.target}`);
+      console.log(`[Smart Network Scan]   Mode: Nmap + NVD CVE matching`);
+
+      const progressMessages: string[] = [];
+      const cveFindings: Array<{
+        cveId: string;
+        description: string;
+        severity?: number | null;
+        host?: string;
+        ip?: string;
+      }> = [];
+
+      try {
+        const { scanNetworkWithCveMatching } = await import("./lib/network-cve-scanner.js");
+        
+        const results = await scanNetworkWithCveMatching({
+          target: body.target,
+          orgId: org_id,
+          projectId: project_id,
+          scanType: body.scanType || "comprehensive", // Use comprehensive to get versions
+          matchCves: true,
+          onProgress: (msg) => {
+            progressMessages.push(msg);
+            console.log(`[Scan Progress] ${msg}`);
+          },
+        });
+
+        // Extract CVEs from results
+        for (const host of results) {
+          for (const vuln of host.vulnerabilities) {
+            if (vuln.cve) {
+              cveFindings.push({
+                cveId: vuln.cve,
+                description: vuln.description,
+                severity: vuln.severity ?? null,
+                host: host.host,
+                ip: host.ip,
+              });
+            }
+          }
+        }
+
+        return {
+          data: {
+            hosts: results.map(r => ({
+              host: r.host,
+              ip: r.ip,
+              vulnerabilities: r.vulnerabilities,
+              matchedCves: r.matchedCves || [],
+            })),
+            progress: progressMessages,
+            cves: cveFindings,
+          },
+        };
+      } catch (err: any) {
+        console.error("[Smart Network Scan] Error:", err);
+        return {
+          error: err.message || "Scan failed",
+          progress: progressMessages,
+        };
+      }
+    },
+    {
+      authenticate: true,
+      body: t.Object({
+        target: t.String(),
+        scanType: t.Optional(t.Union([t.Literal("quick"), t.Literal("comprehensive"), t.Literal("stealth")])),
+      }),
     }
   )
   .post(

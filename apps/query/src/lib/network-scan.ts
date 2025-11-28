@@ -86,6 +86,9 @@ export async function scanNetwork(options: ScanOptions): Promise<ScanResult[]> {
   let nmapCmd = "nmap";
   const args: string[] = [];
   
+  // Always enable version detection for CVE matching
+  args.push("-sV"); // Version detection - essential for CVE matching
+  
   // Vulnerability scanning takes priority - if enabled, use specific command
   if (vulnScan) {
     args.push("--script", "vuln");
@@ -97,10 +100,10 @@ export async function scanNetwork(options: ScanOptions): Promise<ScanResult[]> {
       console.log(`   [Command] Stealth mode: using -sS (SYN scan)`);
     } else if (scanType === "comprehensive") {
       args.push("-O"); // OS detection
-      console.log(`   [Command] Comprehensive mode: using -O (OS detection)`);
+      console.log(`   [Command] Comprehensive mode: using -O (OS detection) + -sV (version detection)`);
     } else {
-      // Quick scan: no additional args, just nmap <ip>
-      console.log(`   [Command] Quick mode: basic scan (no extra flags)`);
+      // Quick scan: still use version detection for CVE matching
+      console.log(`   [Command] Quick mode: basic scan with version detection (-sV)`);
     }
   }
   

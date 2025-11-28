@@ -266,6 +266,37 @@ export async function importCvesFromScan(cves: CveDiscovery[]) {
   );
 }
 
+// NVD API-based CVE lookup (alternative to Nuclei)
+export type CVEInfo = {
+  cveId: string;
+  description: string;
+  severity?: number;
+  publishedDate?: string;
+  lastModifiedDate?: string;
+  affectedProducts?: string[];
+  references?: string[];
+};
+
+export async function lookupCves(cveIds: string[]) {
+  return request<{ data: { found: number; cves: CVEInfo[] } }>(
+    '/cve/lookup',
+    {
+      method: 'POST',
+      json: { cveIds },
+    }
+  );
+}
+
+export async function searchCves(keyword: string, limit?: number) {
+  return request<{ data: { found: number; cves: CVEInfo[] } }>(
+    '/cve/search',
+    {
+      method: 'POST',
+      json: { keyword, limit },
+    }
+  );
+}
+
 export async function listNetworkEvents(params?: { limit?: number; source?: string }) {
   const query = new URLSearchParams();
   if (params?.limit) query.set('limit', String(params.limit));
