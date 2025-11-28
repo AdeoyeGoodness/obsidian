@@ -34,14 +34,21 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (!response.ok) {
     let errorMessage = `Query API error ${response.status}`;
+    // Read response body as text first (can only read once)
     try {
-      const errorData = await response.json();
-      errorMessage = errorData.error || errorData.message || errorMessage;
-    } catch {
-      const errorText = await response.text();
-      if (errorText) {
-        errorMessage = errorText;
+      const responseText = await response.text();
+      if (responseText) {
+        // Try to parse as JSON, fallback to plain text
+        try {
+          const errorData = JSON.parse(responseText);
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch {
+          // Not JSON, use as plain text
+          errorMessage = responseText;
+        }
       }
+    } catch {
+      // If reading fails, use default error message
     }
     const error = new Error(errorMessage);
     (error as any).response = response;
@@ -221,52 +228,24 @@ export async function fetchNodeRisks(petriNetId: string) {
 
 export type NetworkScanRequest = {
   target: string;
-  orgId: string;
-  projectId: string;
-  ports?: string;
-  scanType?: 'quick' | 'comprehensive' | 'stealth';
-  vulnScan?: boolean;
-  scanner?: 'nmap' | 'nessus';
-  useNessus?: boolean;
-  nessusPolicy?: string;
-  nessusFile?: string;
+  nucleiLevel?: 'basic' | 'medium' | 'advanced' | 'cve';
+};
+
+export type CveDiscovery = {
+  cveId: string;
+  description: string;
+  severity?: number | null;
+  host?: string;
+  ip?: string;
 };
 
 export type NetworkScanResult = {
-  hostsFound: number;
-  totalServices: number;
-  totalVulnerabilities: number;
-  threatsDetected?: number;
-  criticalThreats?: number;
-  hosts: Array<{
-    ip: string;
-    hostname?: string;
-    os?: string;
-    services?: Array<{
-      port: number;
-      protocol: string;
-      service: string;
-      version?: string;
-    }>;
-    vulnerabilities?: Array<{
-      cve?: string;
-      severity?: number;
-      description?: string;
-      prediction?: any;
-    }>;
-  }>;
-  threats?: Array<{
-    host: string;
-    ip: string;
-    threatLevel: string;
-    riskScore: number;
-    threats: Array<{
-      type: string;
-      severity: number;
-      description: string;
-      cve?: string;
-    }>;
-  }>;
+  target: string;
+  level: 'basic' | 'medium' | 'advanced' | 'cve';
+  discoveredAt: string;
+  totalHosts: number;
+  totalCves: number;
+  cves: CveDiscovery[];
 };
 
 export async function runNetworkScan(scanRequest: NetworkScanRequest) {
@@ -274,6 +253,16 @@ export async function runNetworkScan(scanRequest: NetworkScanRequest) {
     method: 'POST',
     json: scanRequest,
   });
+}
+
+export async function importCvesFromScan(cves: CveDiscovery[]) {
+  return request<{ data: { stored: number; skipped: Array<{ cveId?: string; reason: string }>; predictionsGenerated: number; predictionErrors: Array<{ cveId: string; error: string }> } }>(
+    '/cve-records/import',
+    {
+      method: 'POST',
+      json: { cves },
+    }
+  );
 }
 
 export async function listNetworkEvents(params?: { limit?: number; source?: string }) {

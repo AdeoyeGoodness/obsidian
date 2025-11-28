@@ -88,15 +88,20 @@ export async function scanNetwork(options: ScanOptions): Promise<ScanResult[]> {
   
   // Vulnerability scanning takes priority - if enabled, use specific command
   if (vulnScan) {
-    args.push("-sS", "-sV", "--script", "vuln");
+    args.push("--script", "vuln");
+    console.log(`   [Command] Vulnerability scan mode: using --script vuln`);
   } else {
     // Scan type options (only if vulnScan is not enabled)
     if (scanType === "stealth") {
       args.push("-sS"); // SYN scan
+      console.log(`   [Command] Stealth mode: using -sS (SYN scan)`);
     } else if (scanType === "comprehensive") {
       args.push("-O"); // OS detection
+      console.log(`   [Command] Comprehensive mode: using -O (OS detection)`);
+    } else {
+      // Quick scan: no additional args, just nmap <ip>
+      console.log(`   [Command] Quick mode: basic scan (no extra flags)`);
     }
-    // Quick scan: no additional args, just nmap <ip>
   }
   
   // Port specification (if provided)
@@ -111,6 +116,7 @@ export async function scanNetwork(options: ScanOptions): Promise<ScanResult[]> {
   args.push(resolvedTarget);
 
   const fullCmd = `${nmapCmd} ${args.join(" ")}`;
+  console.log(`   [Command] Full command: ${fullCmd}`);
   
   try {
     // Check if nmap is available

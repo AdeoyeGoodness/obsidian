@@ -225,6 +225,7 @@ const alertSchema = t.Object({
 
 const TB_TOKEN = process.env.TB_TOKEN;
 const DATABASE_URL = process.env.DATABASE_URL;
+const THREAT_MODEL_API = process.env.THREAT_MODEL_API || "http://localhost:8001/predict";
 
 if (!TB_TOKEN || !DATABASE_URL) {
   console.warn("⚠️  Missing environment variables. Some features will not work.");
@@ -233,17 +234,53 @@ if (!TB_TOKEN || !DATABASE_URL) {
 
 let db: Client | null = null;
 
-if (DATABASE_URL) {
-  db = new Client({
+async function connectDatabase() {
+  if (!DATABASE_URL) {
+    console.warn("⚠️  DATABASE_URL not set");
+    return null;
+  }
+  
+  const client = new Client({
     connectionString: DATABASE_URL,
+    // Add connection settings to handle unstable connections
+    connectionTimeoutMillis: 5000,
+    query_timeout: 10000,
   });
   
   try {
-    await db.connect();
+    await client.connect();
     console.log("✅ Database connected");
-  } catch (error) {
-    console.error("❌ Database connection failed:", error);
-    db = null;
+    
+    // Handle connection errors
+    client.on("error", (err: Error) => {
+      console.error("❌ Database connection error:", err.message);
+      // Don't set db to null here - let it retry on next request
+    });
+    
+    client.on("end", () => {
+      console.warn("⚠️  Database connection ended");
+    });
+    
+    return client;
+  } catch (error: any) {
+    console.error("❌ Database connection failed:", error.message);
+    return null;
+  }
+}
+
+// Initial connection attempt
+if (DATABASE_URL) {
+  db = await connectDatabase();
+  
+  // Retry connection if it failed (database might be starting up)
+  if (!db) {
+    console.log("⏳ Retrying database connection in 2 seconds...");
+    setTimeout(async () => {
+      db = await connectDatabase();
+      if (db) {
+        await ensureTables();
+      }
+    }, 2000);
   }
 }
 
@@ -365,6 +402,75 @@ const ensureTables = async () => {
   for (const statement of tableStatements) {
     await db.query(statement);
   }
+};
+
+type PredictionBatchEntry = {
+  cveId: string;
+  description?: string | null;
+};
+
+const generateThreatPredictions = async (
+  entries: PredictionBatchEntry[],
+  orgId: string,
+  projectId: string,
+  source = "network-scanner"
+) => {
+  if (!db || !entries.length) {
+    return { predictions: {} as Record<string, any>, errors: [] as Array<{ cveId: string; error: string }> };
+  }
+
+  const uniqueEntries = entries.reduce<Map<string, string | null>>((acc, entry) => {
+    if (!entry.cveId) return acc;
+    if (!acc.has(entry.cveId)) {
+      acc.set(entry.cveId, entry.description ?? null);
+    }
+    return acc;
+  }, new Map());
+
+  const predictions: Record<string, any> = {};
+  const errors: Array<{ cveId: string; error: string }> = [];
+
+  const cveEntries = Array.from(uniqueEntries.entries());
+  const batchSize = 20;
+
+  for (let i = 0; i < cveEntries.length; i += batchSize) {
+    const batch = cveEntries.slice(i, i + batchSize);
+    await Promise.all(
+      batch.map(async ([cveId, description]) => {
+        if (!description) {
+          errors.push({ cveId, error: "Missing description for prediction" });
+          return;
+        }
+
+        try {
+          const response = await fetch(THREAT_MODEL_API, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Prediction API responded with ${response.status}`);
+          }
+
+          const prediction = await response.json();
+          predictions[cveId] = prediction;
+
+          await db.query(
+            `INSERT INTO threat_predictions (id, org_id, project_id, cve_id, source, payload)
+             VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)
+             ON CONFLICT (org_id, project_id, cve_id) DO UPDATE SET payload = $5`,
+            [orgId, projectId, cveId, source, JSON.stringify(prediction)]
+          );
+        } catch (err: any) {
+          console.warn(`Failed to predict for ${cveId}:`, err);
+          errors.push({ cveId, error: err.message || "Prediction failed" });
+        }
+      })
+    );
+  }
+
+  return { predictions, errors };
 };
 
 await ensureTables();
@@ -1046,176 +1152,71 @@ const app = new Elysia()
     "/network-scan/run",
     async ({ body, org_id, project_id }) => {
       if (!db) return { error: "Database unavailable" };
-      
+
+      console.log(`[Network Scan] 📡 CVE discovery request received`);
+      console.log(`[Network Scan]   Target: ${body.target}`);
+      console.log(`[Network Scan]   Level: ${body.nucleiLevel || "basic"}`);
+
       try {
-        let results: any[] = [];
-        
-        // Determine scanner type (default to nmap unless explicitly requesting Nessus)
-        const scannerType = body.scanner || (body.useNessus ? "nessus" : "nmap");
-        
-        if (scannerType === "nessus") {
-          // Use Nessus for CVE discovery
-          const { parseNessusFile, convertNessusToScanResult } = await import("./lib/nessus-scan.js");
-          
-          if (body.nessusFile) {
-            // Import from uploaded Nessus file content (as string)
-            const { parseNessusXml, convertNessusToScanResult } = await import("./lib/nessus-scan.js");
-            const { parseString } = await import("xml2js");
-            const { promisify } = await import("util");
-            const parseXml = promisify(parseString) as (xml: string) => Promise<any>;
-            
-            const parsed = await parseXml(body.nessusFile);
-            const nessusResults = parseNessusXml(parsed);
-            results = convertNessusToScanResult(nessusResults);
-          } else {
-            // Run Nessus scan (requires Nessus CLI/API configured)
-            const { runNessusScan, convertNessusToScanResult } = await import("./lib/nessus-scan.js");
-            const nessusResults = await runNessusScan({
-              target: body.target,
-              policy: body.nessusPolicy || "Basic Network Scan",
-              scanName: `Sentinel-Scan-${Date.now()}`,
-              orgId: org_id,
-              projectId: project_id,
+        const { runNucleiScan } = await import("./lib/nuclei-scan.js");
+        const level = body.nucleiLevel || "basic";
+        const nucleiResults = await runNucleiScan({
+          target: body.target,
+          level,
+          orgId: org_id,
+          projectId: project_id,
+        });
+
+        console.log(`[Network Scan] ✅ Nuclei returned ${nucleiResults.length} host result(s)`);
+
+        const cveFindings: Array<{
+          cveId: string;
+          description: string;
+          severity?: number | null;
+          host?: string;
+          ip?: string;
+        }> = [];
+
+        for (const host of nucleiResults) {
+          for (const vuln of host.vulnerabilities) {
+            if (!vuln.cve) continue;
+            cveFindings.push({
+              cveId: vuln.cve,
+              description: vuln.description || "No description provided",
+              severity: vuln.severity ?? null,
+              host: host.host,
+              ip: host.ip,
             });
-            results = convertNessusToScanResult(nessusResults);
           }
-        } else {
-          // Use nmap for scanning
-          const { scanNetwork } = await import("./lib/network-scan.js");
-          
-          const scanOptions = {
+        }
+
+        // Log the scan summary for auditing purposes
+        await db.query(
+          `INSERT INTO network_events (id, org_id, project_id, source, event_type, payload, observed_at)
+           VALUES (gen_random_uuid(), $1, $2, 'network-scanner', 'cve-scan', $3, NOW())`,
+          [
+            org_id,
+            project_id,
+            JSON.stringify({
+              target: body.target,
+              level,
+              discoveredAt: new Date().toISOString(),
+              totalHosts: nucleiResults.length,
+              totalCves: cveFindings.length,
+            }),
+          ]
+        );
+
+        return {
+          data: {
             target: body.target,
-            ports: body.ports,
-            vulnScan: body.vulnScan || false,
-            orgId: org_id,
-            projectId: project_id,
-            scanType: body.scanType || "quick",
-          };
-
-          // Run the scan
-          results = await scanNetwork(scanOptions);
-        }
-        
-        // Import results to database
-        for (const result of results) {
-          const eventPayload = {
-            host: result.host,
-            ip: result.ip,
-            os: result.os,
-            services: result.services,
-            vulnerabilities: result.vulnerabilities,
-            scanTimestamp: new Date().toISOString(),
-          };
-
-          await db.query(
-            `INSERT INTO network_events (id, org_id, project_id, source, event_type, payload, observed_at)
-             VALUES (gen_random_uuid(), $1, $2, 'network-scanner', 'host-scan', $3, NOW())`,
-            [org_id, project_id, JSON.stringify(eventPayload)]
-          );
-
-          // Create CVE records for discovered vulnerabilities
-          for (const vuln of result.vulnerabilities) {
-            if (vuln.cve) {
-              await db.query(
-                `INSERT INTO cve_records (id, org_id, project_id, cve_id, description, source, affected_component, severity)
-                 VALUES (gen_random_uuid(), $1, $2, $3, $4, 'network-scanner', $5, $6)
-                 ON CONFLICT (org_id, project_id, cve_id) DO NOTHING`,
-                [
-                  org_id,
-                  project_id,
-                  vuln.cve,
-                  vuln.description,
-                  result.host,
-                  vuln.severity,
-                ]
-              );
-            }
-          }
-        }
-
-        // Auto-detect threats (detection only, no defense actions)
-        const { detectThreats } = await import("./lib/threat-detection.js");
-        const detectedThreats = detectThreats(results);
-
-        // Auto-trigger ML predictions for discovered CVEs (batched to save memory)
-        const threatModelApi = process.env.THREAT_MODEL_API || "http://localhost:8001/predict";
-        const predictions: Record<string, any> = {};
-
-        // Collect unique CVEs with descriptions
-        const cveMap = new Map<string, string>();
-        for (const result of results) {
-          for (const vuln of result.vulnerabilities) {
-            if (vuln.cve && vuln.description && !cveMap.has(vuln.cve)) {
-              cveMap.set(vuln.cve, vuln.description);
-            }
-          }
-        }
-
-        // Batch predictions (limit to 20 at a time to avoid memory issues)
-        const cveEntries = Array.from(cveMap.entries());
-        const batchSize = 20;
-        for (let i = 0; i < cveEntries.length; i += batchSize) {
-          const batch = cveEntries.slice(i, i + batchSize);
-          
-          // Process batch with limited concurrency
-          const batchPromises = batch.map(async ([cve, description]) => {
-            try {
-              const predictionResponse = await fetch(threatModelApi, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ description }),
-              });
-              if (predictionResponse.ok) {
-                const prediction = await predictionResponse.json();
-                predictions[cve] = prediction;
-                
-                // Store prediction
-                await db.query(
-                  `INSERT INTO threat_predictions (id, org_id, project_id, cve_id, source, payload)
-                   VALUES (gen_random_uuid(), $1, $2, $3, 'network-scanner', $4)
-                   ON CONFLICT (org_id, project_id, cve_id) DO UPDATE SET payload = $4`,
-                  [org_id, project_id, cve, JSON.stringify(prediction)]
-                );
-              }
-            } catch (err) {
-              console.warn(`Failed to predict for ${cve}:`, err);
-            }
-          });
-          
-          // Wait for batch to complete before processing next batch
-          await Promise.all(batchPromises);
-        }
-
-        // Threat detection only - no defense simulation or quarantine
-
-        // Format response (detection only)
-        const response = {
-          hostsFound: results.length,
-          totalServices: results.reduce((sum, r) => sum + r.services.length, 0),
-          totalVulnerabilities: results.reduce((sum, r) => sum + r.vulnerabilities.length, 0),
-          threatsDetected: detectedThreats.length,
-          criticalThreats: detectedThreats.filter((t) => t.threatLevel === "critical" || t.threatLevel === "high").length,
-          hosts: results.map((r) => ({
-            ip: r.ip,
-            hostname: r.host,
-            os: r.os,
-            services: r.services.map((s) => ({
-              port: s.port,
-              protocol: s.protocol,
-              service: s.service,
-              version: s.version,
-            })),
-            vulnerabilities: r.vulnerabilities.map((v) => ({
-              cve: v.cve,
-              severity: v.severity,
-              description: v.description,
-              prediction: predictions[v.cve || ""] || null,
-            })),
-          })),
-          threats: detectedThreats,
+            level,
+            discoveredAt: new Date().toISOString(),
+            totalHosts: nucleiResults.length,
+            totalCves: cveFindings.length,
+            cves: cveFindings,
+          },
         };
-
-        return { data: response };
       } catch (err: any) {
         console.error("Network scan error:", err);
         return {
@@ -1227,13 +1228,85 @@ const app = new Elysia()
       authenticate: true,
       body: t.Object({
         target: t.String(),
-        ports: t.Optional(t.String()),
-        scanType: t.Optional(t.Union([t.Literal("quick"), t.Literal("comprehensive"), t.Literal("stealth")])),
-        vulnScan: t.Optional(t.Boolean()),
-        scanner: t.Optional(t.Union([t.Literal("nmap"), t.Literal("nessus")])), // Scanner type
-        useNessus: t.Optional(t.Boolean()), // Deprecated: prefer scanner
-        nessusPolicy: t.Optional(t.String()), // Nessus policy template
-        nessusFile: t.Optional(t.String()), // Path to .nessus file to import
+        nucleiLevel: t.Optional(
+          t.Union([t.Literal("basic"), t.Literal("medium"), t.Literal("advanced"), t.Literal("cve")])
+        ),
+      }),
+    }
+  )
+  .post(
+    "/cve-records/import",
+    async ({ body, org_id, project_id }) => {
+      if (!db) return { error: "Database unavailable" };
+
+      const cves = body.cves || [];
+      if (!Array.isArray(cves) || cves.length === 0) {
+        return { error: "No CVEs provided" };
+      }
+
+      const stored: string[] = [];
+      const skipped: Array<{ cveId?: string; reason: string }> = [];
+
+      for (const entry of cves) {
+        if (!entry.cveId) {
+          skipped.push({ cveId: undefined, reason: "Missing cveId" });
+          continue;
+        }
+
+        try {
+          await db.query(
+            `INSERT INTO cve_records (id, org_id, project_id, cve_id, description, source, affected_component, severity)
+             VALUES (gen_random_uuid(), $1, $2, $3, $4, 'manual-import', $5, $6)
+             ON CONFLICT (org_id, project_id, cve_id)
+             DO UPDATE SET
+               description = COALESCE(EXCLUDED.description, cve_records.description),
+               severity = COALESCE(EXCLUDED.severity, cve_records.severity),
+               affected_component = COALESCE(EXCLUDED.affected_component, cve_records.affected_component)`,
+            [
+              org_id,
+              project_id,
+              entry.cveId,
+              entry.description ?? null,
+              entry.host ?? null,
+              entry.severity ?? null,
+            ]
+          );
+          stored.push(entry.cveId);
+        } catch (err: any) {
+          console.error(`Failed to store CVE ${entry.cveId}:`, err);
+          skipped.push({ cveId: entry.cveId, reason: err.message || "Insert failed" });
+        }
+      }
+
+      const { predictions, errors } = await generateThreatPredictions(
+        stored.map((cveId) => {
+          const found = cves.find((entry) => entry.cveId === cveId);
+          return { cveId, description: found?.description ?? null };
+        }),
+        org_id,
+        project_id
+      );
+
+      return {
+        data: {
+          stored: stored.length,
+          skipped,
+          predictionsGenerated: Object.keys(predictions).length,
+          predictionErrors: errors,
+        },
+      };
+    },
+    {
+      body: t.Object({
+        cves: t.Array(
+          t.Object({
+            cveId: t.String(),
+            description: t.Optional(t.String()),
+            severity: t.Optional(t.Number()),
+            host: t.Optional(t.String()),
+            ip: t.Optional(t.String()),
+          })
+        ),
       }),
     }
   )
@@ -1290,6 +1363,81 @@ const app = new Elysia()
     },
     {
       authenticate: true,
+    }
+  )
+  // Temporary endpoint to get/create API token (no auth required for setup)
+  .get(
+    "/setup/token",
+    async ({ query }) => {
+      // Try to reconnect if db is null
+      if (!db && DATABASE_URL) {
+        console.log("[Setup] Attempting to reconnect to database...");
+        db = await connectDatabase();
+      }
+      
+      if (!db) {
+        return { 
+          error: "Database unavailable",
+          hint: "Check DATABASE_URL environment variable and ensure PostgreSQL is running",
+          database_url_set: !!DATABASE_URL,
+        };
+      }
+      
+      const orgId = query.org || "pleroma";
+      const projectId = query.project || "project";
+      
+      try {
+        // Ensure api_keys table exists
+        await db.query(`
+          CREATE TABLE IF NOT EXISTS api_keys (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            token TEXT UNIQUE NOT NULL,
+            org_id TEXT NOT NULL,
+            project_id TEXT NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+          );
+        `);
+        
+        // Check if token exists
+        const existing = await db.query(
+          "SELECT token FROM api_keys WHERE org_id = $1 AND project_id = $2",
+          [orgId, projectId]
+        );
+        
+        if (existing.rows.length > 0) {
+          return {
+            token: existing.rows[0].token,
+            org_id: orgId,
+            project_id: projectId,
+            message: "Existing token found",
+          };
+        }
+        
+        // Create new token
+        const token = `test-token-${Date.now()}`;
+        await db.query(
+          "INSERT INTO api_keys (token, org_id, project_id) VALUES ($1, $2, $3)",
+          [token, orgId, projectId]
+        );
+        
+        return {
+          token,
+          org_id: orgId,
+          project_id: projectId,
+          message: "New token created",
+        };
+      } catch (error: any) {
+        return { 
+          error: error.message,
+          hint: "Check database connection and permissions",
+        };
+      }
+    },
+    {
+      query: t.Object({
+        org: t.Optional(t.String()),
+        project: t.Optional(t.String()),
+      }),
     }
   )
   .get(

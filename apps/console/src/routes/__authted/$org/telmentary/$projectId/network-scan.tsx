@@ -16,7 +16,8 @@ function RouteComponent() {
   const [ports, setPorts] = useState('');
   const [scanType, setScanType] = useState<'quick' | 'comprehensive' | 'stealth'>('quick');
   const [vulnScan, setVulnScan] = useState(false);
-  const [scanner, setScanner] = useState<'nmap' | 'nessus'>('nmap');
+  const [scanner, setScanner] = useState<'nmap' | 'nuclei' | 'nessus'>('nuclei');
+  const [nucleiLevel, setNucleiLevel] = useState<'basic' | 'medium' | 'advanced' | 'cve'>('basic');
   const [nessusPolicy, setNessusPolicy] = useState('Basic Network Scan');
   const [nessusFile, setNessusFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,6 +54,7 @@ function RouteComponent() {
         useNessus: scanner === 'nessus',
         nessusPolicy: scanner === 'nessus' ? nessusPolicy : undefined,
         nessusFile: scanner === 'nessus' ? nessusFileContent : undefined,
+        nucleiLevel: scanner === 'nuclei' ? nucleiLevel : undefined,
       };
 
       const response = await runNetworkScan(scanRequest);
@@ -63,7 +65,7 @@ function RouteComponent() {
     } finally {
       setLoading(false);
     }
-  }, [target, ports, scanType, vulnScan, scanner, nessusPolicy, nessusFile, org, projectId]);
+  }, [target, ports, scanType, vulnScan, scanner, nucleiLevel, nessusPolicy, nessusFile, org, projectId]);
 
   return (
     <TelemetryLayout org={org} projectId={projectId} section="Network Scanner">
@@ -148,6 +150,18 @@ function RouteComponent() {
                     <input
                       type="radio"
                       name="scanner"
+                      checked={scanner === 'nuclei'}
+                      onChange={() => setScanner('nuclei')}
+                      className="w-4 h-4 border-gray-600 bg-gray-900 text-cyan-500 focus:ring-cyan-500"
+                    />
+                    <span className="text-sm text-gray-300">
+                      <strong className="text-cyan-400">Nuclei</strong> (Known CVEs)
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="scanner"
                       checked={scanner === 'nmap'}
                       onChange={() => setScanner('nmap')}
                       className="w-4 h-4 border-gray-600 bg-gray-900 text-cyan-500 focus:ring-cyan-500"
@@ -166,12 +180,35 @@ function RouteComponent() {
                   </label>
                 </div>
                 <p className="text-xs text-gray-500">
-                  <strong>Nmap:</strong> Run network discovery and port scans |
-                  <strong className="ml-1">Nessus:</strong> Import professional CVE findings (requires configured Nessus instance)
+                  <strong>Nuclei:</strong> Target known CVEs with templated scans |
+                  <strong className="ml-1">Nmap:</strong> Port and service discovery (optional vuln scripts) |
+                  <strong className="ml-1">Nessus:</strong> Import professional scanner results
                 </p>
               </div>
 
-              {/* Nmap Options (only if using Nmap) */}
+              {/* Nuclei Options */}
+              {scanner === 'nuclei' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Scan Level
+                  </label>
+                  <select
+                    value={nucleiLevel}
+                    onChange={(e) => setNucleiLevel(e.target.value as typeof nucleiLevel)}
+                    className="w-full px-4 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  >
+                    <option value="basic">Basic (Low & Medium severity)</option>
+                    <option value="medium">Medium (High severity)</option>
+                    <option value="advanced">Advanced (Critical only)</option>
+                    <option value="cve">CVE Templates (http/cves)</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Choose how aggressive the scan should be. Advanced targets only critical findings; Basic covers broader detections.
+                  </p>
+                </div>
+              )}
+
+              {/* Nmap Options */}
               {scanner === 'nmap' && (
                 <div>
                   <label className="flex items-center gap-3 cursor-pointer">
